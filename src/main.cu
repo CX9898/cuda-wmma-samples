@@ -15,18 +15,6 @@ const int WMMA_M = 16;
 const int WMMA_N = 16;
 const int WMMA_K = 16;
 
-//void cudaErrCheck(cudaError_t stat) {
-//    if (stat != cudaSuccess) {
-//        printf("CUDA Error: %s %s %d\n", cudaGetErrorString(stat), __FILEW__, __LINE__);
-//    }
-//}
-//
-//void cublasErrCheck(cublasStatus_t stat) {
-//    if (stat != CUBLAS_STATUS_SUCCESS) {
-//        printf( "cuBLAS Error: %d %s %d\n", stat, __FILEW__, __LINE__);
-//    }
-//}
-
 // Define some error checking macros.
 #define cudaErrCheck(stat) { cudaErrCheck_((stat), __FILE__, __LINE__); }
 void cudaErrCheck_(cudaError_t stat, const char *file, int line) {
@@ -82,8 +70,21 @@ int main() {
     cudaErrCheck(cudaMalloc((void **) &c, MATRIX_M * MATRIX_N * sizeof(float)));
     cudaErrCheck(cudaMalloc((void **) &c_cublas, MATRIX_M * MATRIX_N * sizeof(float)));
 
+    /* using curand to initialize */
+    {
+        curandGenerator_t curandGen;
 
-    /* using cuBLAS */
+        curandErrCheck(curandCreateGenerator(&curandGen, CURAND_RNG_PSEUDO_DEFAULT));
+        curandErrCheck(curandSetPseudoRandomGeneratorSeed(curandGen, 1337ULL));
+
+        curandErrCheck(curandGenerateUniform(curandGen, a_fp32, MATRIX_M * MATRIX_K));
+        curandErrCheck(curandGenerateUniform(curandGen, b_fp32, MATRIX_K * MATRIX_N));
+        curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_M * MATRIX_N));
+
+        curandErrCheck(curandDestroyGenerator(curandGen));
+    }
+
+    /* using cuBLAS computation */
     {
         printf("Running with cuBLAS...\n");
 
@@ -101,9 +102,21 @@ int main() {
                                     &beta,
                                     c_cublas, CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+
+        cublasErrCheck(cublasDestroy(cublasHandle));
     }
 
+    /* using wmmaExample computation */
+    {
+
+    }
+
+    cudaErrCheck(cudaFree(a_fp32));
+    cudaErrCheck(cudaFree(b_fp32));
     cudaErrCheck(cudaFree(a_fp16));
+    cudaErrCheck(cudaFree(b_fp16));
+    cudaErrCheck(cudaFree(c));
+    cudaErrCheck(cudaFree(c_cublas));
 
     return 0;
 }
