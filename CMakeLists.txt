@@ -26,22 +26,22 @@ message(STATUS "Src files: ${SRC_FILES}")
 # 指定生成目标
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
-# 查找 CUDA 包
-find_package(CUDAToolkit  REQUIRED)
+# find package
+find_package(CUDAToolkit REQUIRED)
 find_package(OpenMP REQUIRED)
 
 #REQUIRED: 如果指定的包找不到，CMake 将报错并停止进一步的配置过程。这是确保项目依赖性的关键参数。
 #QUIET: 当设置为 QUIET 时，即使找不到包，CMake 也不会在控制台输出任何警告或错误信息。这通常用于可选依赖项。
 #MODULE: 这个参数告诉 CMake 查找的是 CMake 模块文件（.cmake 文件），而不是包配置文件
 
-# 添加 CUDA 的头文件目录(局部添加)
+# Add CUDA header directory (locally)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
 
 #PRIVATE：链接的库仅对目标自身可见。
 #PUBLIC：链接的库对目标自身和链接到该目标的所有其他目标都可见。
 #INTERFACE：链接的库仅对链接到该目标的其他目标可见。
 
-# 添加 CUDA 的头文件目录(全局添加)
+# Add CUDA header directory (globally)
 #include_directories(${CUDA_INCLUDE_DIRS})
 
 # Linked CUDA library
