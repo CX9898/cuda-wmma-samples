@@ -185,9 +185,11 @@ int main() {
         for (int idx = 0; idx < numMatrixCDates; ++idx) {
             float cublasRes = cCublasHost[idx];
             float wmmaExRes = cWmmaEx[idx];
+            float diffDats = fabs(cublasRes - wmmaExRes);
 
+            float relativeErr = diffDats / cublasRes;
             float eps = 1e-4;
-            if (cublasRes - wmmaExRes >= eps) {
+            if (relativeErr >= eps) {
                 ++errors;
                 if (errors < 10) {
                     printf("error : cublasRes = %f, wmmaExRes = %f\n", cublasRes, wmmaExRes);
