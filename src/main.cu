@@ -46,7 +46,7 @@ __global__ void convertFp32ToFp16(half *out, float *in, int n) {
 
 __global__ void wmmaExample(const int M, const int N, const int K,
                             const float alpha, const float beta,
-                            const half *mtrA, const float *mtrB, float *mtrC) {
+                            const half *mtrA, const half *mtrB, float *mtrC) {
     const int warpID = (int) (blockDim.x * blockIdx.x + threadIdx.x) / warpSize;
 
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> a_frag;
@@ -100,12 +100,19 @@ int main() {
     {
         printf("Running with cuBLAS...\n");
 
+        cudaEvent_t startcublas;
+        cudaEvent_t stopcublas;
+
+        cudaErrCheck(cudaEventCreate(&startcublas));
+        cudaErrCheck(cudaEventCreate(&stopcublas));
+
         cublasHandle_t cublasHandle;
         cublasErrCheck(cublasCreate(&cublasHandle));
 
         // Use tensor cores
         cublasErrCheck(cublasSetMathMode(cublasHandle, CUBLAS_TENSOR_OP_MATH));
 
+        cudaErrCheck(cudaEventRecord(startcublas));
         cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
@@ -114,13 +121,43 @@ int main() {
                                     &beta,
                                     c_cublas, CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
+        cudaErrCheck(cudaEventRecord(stopcublas));
+        cudaErrCheck(cudaEventSynchronize(stopcublas));
+
+        float cublasTime;
+        cudaErrCheck(cudaEventElapsedTime(&cublasTime, startcublas, stopcublas));
+        printf("cublasGemmEx time : %fms\n", cublasTime);
 
         cublasErrCheck(cublasDestroy(cublasHandle));
+
+        cudaErrCheck(cudaEventDestroy(startcublas));
+        cudaErrCheck(cudaEventDestroy(stopcublas));
     }
 
     /* using wmmaExample computation */
     {
+        printf("Running with wmmaExample...\n");
 
+        cudaEvent_t startWMMAEx;
+        cudaEvent_t stopWMMAEx;
+
+        cudaErrCheck(cudaEventCreate(&startWMMAEx));
+        cudaErrCheck(cudaEventCreate(&stopWMMAEx));
+
+        dim3 gridDim;
+        dim3 blockDim;
+
+        cudaErrCheck(cudaEventRecord(startWMMAEx));
+        wmmaExample<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, a_fp16, b_fp16, c);
+        cudaErrCheck(cudaEventRecord(stopWMMAEx));
+        cudaErrCheck(cudaEventSynchronize(stopWMMAEx));
+
+        float wmmaTime;
+        cudaErrCheck(cudaEventElapsedTime(&wmmaTime, startWMMAEx, stopWMMAEx));
+        printf("wmmaExample time : %fms\n", wmmaTime);
+
+        cudaErrCheck(cudaEventDestroy(startWMMAEx));
+        cudaErrCheck(cudaEventDestroy(stopWMMAEx));
     }
 
     cudaErrCheck(cudaFree(a_fp32));
