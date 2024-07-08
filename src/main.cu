@@ -37,6 +37,13 @@ void curandErrCheck_(curandStatus_t stat, const char *file, int line) {
     }
 }
 
+__global__ void convertFp32ToFp16(half *out, float *in, int n) {
+    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if (idx < n) {
+        out[idx] = in[idx];
+    }
+}
+
 __global__ void wmmaExample(const int M, const int N, const int K,
                             const float alpha, const float beta,
                             const half *mtrA, const float *mtrB, float *mtrC) {
@@ -82,6 +89,11 @@ int main() {
         curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_M * MATRIX_N));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
+
+        const int numThreadPerBlock = 256;
+        const int numBlocks = (MATRIX_M * MATRIX_K + 255) / 256;
+        convertFp32ToFp16<<< numBlocks, numThreadPerBlock>>>(a_fp16, a_fp32, MATRIX_M * MATRIX_K);
+        convertFp32ToFp16<<< numBlocks, numThreadPerBlock>>>(b_fp16, b_fp32, MATRIX_K * MATRIX_N);
     }
 
     /* using cuBLAS computation */
