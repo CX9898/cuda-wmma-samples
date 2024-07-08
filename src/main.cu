@@ -56,26 +56,30 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 }
 
 int main() {
-    float *a_fp32;
-    float *b_fp32;
+    float *aFp32;
+    float *bFp32;
 
-    half *a_fp16;
-    half *b_fp16;
+    half *aFp16;
+    half *bFp16;
 
-    float *c;
-    float *c_cublas;
+    float *cWmmaEx;
+    float *cCublas;
 
     const float alpha = 2.0f;
     const float beta = 2.0f;
 
-    cudaErrCheck(cudaMalloc((void **) &a_fp32, MATRIX_M * MATRIX_K * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &b_fp32, MATRIX_K * MATRIX_N * sizeof(float)));
+    const int numMatrixADates = MATRIX_M * MATRIX_K;
+    const int numMatrixBDates = MATRIX_K * MATRIX_N;
+    const int numMatrixCDates = MATRIX_M * MATRIX_N;
 
-    cudaErrCheck(cudaMalloc((void **) &a_fp16, MATRIX_M * MATRIX_K * sizeof(half)));
-    cudaErrCheck(cudaMalloc((void **) &b_fp16, MATRIX_K * MATRIX_N * sizeof(half)));
+    cudaErrCheck(cudaMalloc((void **) &aFp32, numMatrixADates * sizeof(float)));
+    cudaErrCheck(cudaMalloc((void **) &bFp32, numMatrixBDates * sizeof(float)));
 
-    cudaErrCheck(cudaMalloc((void **) &c, MATRIX_M * MATRIX_N * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &c_cublas, MATRIX_M * MATRIX_N * sizeof(float)));
+    cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
+    cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
+
+    cudaErrCheck(cudaMalloc((void **) &cWmmaEx, numMatrixCDates * sizeof(float)));
+    cudaErrCheck(cudaMalloc((void **) &cCublas, numMatrixCDates * sizeof(float)));
 
     /* using curand to initialize */
     {
@@ -84,16 +88,23 @@ int main() {
         curandErrCheck(curandCreateGenerator(&curandGen, CURAND_RNG_PSEUDO_DEFAULT));
         curandErrCheck(curandSetPseudoRandomGeneratorSeed(curandGen, 1337ULL));
 
-        curandErrCheck(curandGenerateUniform(curandGen, a_fp32, MATRIX_M * MATRIX_K));
-        curandErrCheck(curandGenerateUniform(curandGen, b_fp32, MATRIX_K * MATRIX_N));
-        curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_M * MATRIX_N));
+        curandErrCheck(curandGenerateUniform(curandGen, aFp32, numMatrixADates));
+        curandErrCheck(curandGenerateUniform(curandGen, bFp32, numMatrixBDates));
+
+        float *c;
+        cudaErrCheck(cudaMalloc((void **) &c, numMatrixCDates * sizeof(float)));
+        curandErrCheck(curandGenerateUniform(curandGen, c, numMatrixCDates));
+
+        cudaErrCheck(cudaMemcpy(cCublas, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
 
         const int numThreadPerBlock = 256;
-        const int numBlocks = (MATRIX_M * MATRIX_K + 255) / 256;
-        convertFp32ToFp16<<< numBlocks, numThreadPerBlock>>>(a_fp16, a_fp32, MATRIX_M * MATRIX_K);
-        convertFp32ToFp16<<< numBlocks, numThreadPerBlock>>>(b_fp16, b_fp32, MATRIX_K * MATRIX_N);
+        convertFp32ToFp16<<< (numMatrixADates + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            aFp16, aFp32, numMatrixADates);
+        convertFp32ToFp16<<< (numMatrixBDates + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            bFp16, bFp32, numMatrixBDates);
     }
 
     /* using cuBLAS computation */
@@ -116,10 +127,10 @@ int main() {
         cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
-                                    a_fp16, CUDA_R_16F, MATRIX_M,
-                                    b_fp16, CUDA_R_16F, MATRIX_K,
+                                    aFp16, CUDA_R_16F, MATRIX_M,
+                                    bFp16, CUDA_R_16F, MATRIX_K,
                                     &beta,
-                                    c_cublas, CUDA_R_32F, MATRIX_M,
+                                    cCublas, CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
         cudaErrCheck(cudaEventRecord(stopcublas));
         cudaErrCheck(cudaEventSynchronize(stopcublas));
@@ -138,34 +149,62 @@ int main() {
     {
         printf("Running with wmmaExample...\n");
 
-        cudaEvent_t startWMMAEx;
-        cudaEvent_t stopWMMAEx;
+        cudaEvent_t startWmmaEx;
+        cudaEvent_t stopWmmaEx;
 
-        cudaErrCheck(cudaEventCreate(&startWMMAEx));
-        cudaErrCheck(cudaEventCreate(&stopWMMAEx));
+        cudaErrCheck(cudaEventCreate(&startWmmaEx));
+        cudaErrCheck(cudaEventCreate(&stopWmmaEx));
 
         dim3 gridDim;
         dim3 blockDim;
 
-        cudaErrCheck(cudaEventRecord(startWMMAEx));
-        wmmaExample<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, a_fp16, b_fp16, c);
-        cudaErrCheck(cudaEventRecord(stopWMMAEx));
-        cudaErrCheck(cudaEventSynchronize(stopWMMAEx));
+        cudaErrCheck(cudaEventRecord(startWmmaEx));
+        wmmaExample<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmmaEx);
+        cudaErrCheck(cudaEventRecord(stopWmmaEx));
+        cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
         float wmmaTime;
-        cudaErrCheck(cudaEventElapsedTime(&wmmaTime, startWMMAEx, stopWMMAEx));
+        cudaErrCheck(cudaEventElapsedTime(&wmmaTime, startWmmaEx, stopWmmaEx));
         printf("wmmaExample time : %fms\n", wmmaTime);
 
-        cudaErrCheck(cudaEventDestroy(startWMMAEx));
-        cudaErrCheck(cudaEventDestroy(stopWMMAEx));
+        cudaErrCheck(cudaEventDestroy(startWmmaEx));
+        cudaErrCheck(cudaEventDestroy(stopWmmaEx));
     }
 
-    cudaErrCheck(cudaFree(a_fp32));
-    cudaErrCheck(cudaFree(b_fp32));
-    cudaErrCheck(cudaFree(a_fp16));
-    cudaErrCheck(cudaFree(b_fp16));
-    cudaErrCheck(cudaFree(c));
-    cudaErrCheck(cudaFree(c_cublas));
+    /* error checking */
+    {
+        printf("\nChecking results...\n");
+
+        float *cCublasHost = (float *) malloc(numMatrixCDates * sizeof(float));
+        float *cWmmaExHost = (float *) malloc(numMatrixCDates * sizeof(float));
+
+        cudaErrCheck(cudaMemcpy(cWmmaExHost, cWmmaEx, numMatrixCDates * sizeof(float), cudaMemcpyDeviceToHost));
+        cudaErrCheck(cudaMemcpy(cCublasHost, cCublas, numMatrixCDates * sizeof(float), cudaMemcpyDeviceToHost));
+
+        int errors = 0;
+        for (int idx = 0; idx < numMatrixCDates; ++idx) {
+            float cublasRes = cCublasHost[idx];
+            float wmmaExRes = cWmmaEx[idx];
+
+            float eps = 1e-4;
+            if (cublasRes - wmmaExRes >= eps) {
+                ++errors;
+                if (errors < 10) {
+                    printf("error : cublasRes = %f, wmmaExRes = %f\n", cublasRes, wmmaExRes);
+                }
+            }
+        }
+
+        free(cCublasHost);
+        free(cWmmaExHost);
+    }
+
+    cudaErrCheck(cudaFree(aFp32));
+    cudaErrCheck(cudaFree(bFp32));
+    cudaErrCheck(cudaFree(aFp16));
+    cudaErrCheck(cudaFree(bFp16));
+    cudaErrCheck(cudaFree(cWmmaEx));
+    cudaErrCheck(cudaFree(cCublas));
 
     return 0;
 }
