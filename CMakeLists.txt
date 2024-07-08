@@ -28,7 +28,6 @@ add_executable(${PROJECT_NAME} ${SRC_FILES})
 
 # find package
 find_package(CUDAToolkit REQUIRED)
-find_package(OpenMP REQUIRED)
 
 #REQUIRED: 如果指定的包找不到，CMake 将报错并停止进一步的配置过程。这是确保项目依赖性的关键参数。
 #QUIET: 当设置为 QUIET 时，即使找不到包，CMake 也不会在控制台输出任何警告或错误信息。这通常用于可选依赖项。
@@ -46,9 +45,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
 
 # Linked CUDA library
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_CUDART_LIBRARY})
-
-# Linked Thrust library
-#target_link_libraries(${PROJECT_NAME} PRIVATE ${Thrust_LIBRARIES})
 
 # Linked cublas library
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cublas_LIBRARY})
