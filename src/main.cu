@@ -78,8 +78,8 @@ int main() {
     cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
     cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
 
-    cudaErrCheck(cudaMalloc((void **) &cWmmaEx, numMatrixCDates * sizeof(float)));
     cudaErrCheck(cudaMalloc((void **) &cCublas, numMatrixCDates * sizeof(float)));
+    cudaErrCheck(cudaMalloc((void **) &cWmmaEx, numMatrixCDates * sizeof(float)));
 
     /* using curand to initialize */
     {
@@ -184,7 +184,7 @@ int main() {
         int errors = 0;
         for (int idx = 0; idx < numMatrixCDates; ++idx) {
             float cublasRes = cCublasHost[idx];
-            float wmmaExRes = cWmmaEx[idx];
+            float wmmaExRes = cWmmaExHost[idx];
             float diffDats = fabs(cublasRes - wmmaExRes);
 
             float relativeErr = diffDats / cublasRes;
@@ -197,6 +197,12 @@ int main() {
             }
         }
 
+        if (errors > 0) {
+            printf("wmmaExample does not agree with cuBLAS! %d errors!\n", errors);
+        } else {
+            printf("Results verified: cublas and WMMA agree.\n");
+        }
+
         free(cCublasHost);
         free(cWmmaExHost);
     }
@@ -205,8 +211,8 @@ int main() {
     cudaErrCheck(cudaFree(bFp32));
     cudaErrCheck(cudaFree(aFp16));
     cudaErrCheck(cudaFree(bFp16));
-    cudaErrCheck(cudaFree(cWmmaEx));
     cudaErrCheck(cudaFree(cCublas));
+    cudaErrCheck(cudaFree(cWmmaEx));
 
     return 0;
 }
