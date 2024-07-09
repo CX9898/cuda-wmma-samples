@@ -42,9 +42,6 @@ find_package(CUDAToolkit REQUIRED)
 # Add CUDA header directory (locally)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
 
-target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
-target_include_directories(${PROJECT_NAME} PRIVATE ${COMMON_DIR})
-
 #PRIVATE: The linked library is only visible to the target itself.
 #PUBLIC: The linked library is visible to the target itself and to all other targets linked to the target.
 #INTERFACE: Linked libraries are only visible to other targets linked to that target.
