@@ -47,7 +47,14 @@ __global__ void convertFp32ToFp16(half *out, float *in, int n) {
 __global__ void wmmaExample(const int M, const int N, const int K,
                             const float alpha, const float beta,
                             const half *mtrA, const half *mtrB, float *mtrC) {
-    const int warpID = (int) (blockDim.x * blockIdx.x + threadIdx.x) / warpSize;
+    // Leading dimensions. Packed with no transpositions.
+    int lda = K;
+    int ldb = M;
+    int ldc = N;
+
+    // Tile using a 2D grid
+    int warpM = (int)(blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
+    int warpN = (int)(blockIdx.y * blockDim.y + threadIdx.y);
 
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> fragA;
     wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> fragB;
@@ -57,6 +64,7 @@ __global__ void wmmaExample(const int M, const int N, const int K,
     wmma::fill_fragment(fragACC, 0.0f);
 
     for (int i = 0; i < K; i += WMMA_K) {
+        int aRow =
 
         wmma::load_matrix_sync(fragA, mtrA, K);
         wmma::load_matrix_sync(fragB, mtrB, N);
