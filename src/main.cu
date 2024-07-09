@@ -49,15 +49,19 @@ __global__ void wmmaExample(const int M, const int N, const int K,
                             const half *mtrA, const half *mtrB, float *mtrC) {
     const int warpID = (int) (blockDim.x * blockIdx.x + threadIdx.x) / warpSize;
 
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> fragA;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> fragB;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> fragACC;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> fragC;
 
-    wmma::fill_fragment(accFrag, 0.0f);
+    wmma::fill_fragment(fragACC, 0.0f);
 
     for (int i = 0; i < K; i += WMMA_K) {
-        
+
+        wmma::load_matrix_sync(fragA, mtrA, K);
+        wmma::load_matrix_sync(fragB, mtrB, N);
+
+        wmma::mma_sync(fragACC, fragA, fragB, fragACC);
     }
 
 }
