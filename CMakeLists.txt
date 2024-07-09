@@ -1,44 +1,53 @@
-# 指定cmake最低版本要求
+# Specify the minimum version of cmake
 cmake_minimum_required(VERSION 3.26)
 
-# 项目信息, 指定项目名为 Demo
-project(wmma-sample)
+# Project Information
+project(cmake-cuda-demo)
 
-# 添加构建项目时需要的语言
+# Add languages needed when building the project
 enable_language(CXX)
 enable_language(CUDA)
 
-# 设置 C++ 版本
+# Sets the C++ standard used by the project
 set(CMAKE_CXX_STANDARD 11)
 
-# 设置 CUDA 架构类型
-set(CMAKE_CUDA_ARCHITECTURES 70)
+# Specifies which GPU architectures are supported when compiling CUDA code (optional)
+#set(CMAKE_CUDA_ARCHITECTURES 70)
 
-# 添加 include 文件夹路径到变量INCLUDE_DIR,添加 src 文件夹路径到变量 SRC_DIR
+# Save the folder path in a variable
 set(SRC_DIR "${CMAKE_SOURCE_DIR}/src")
 
-# src 文件夹中的所有文件储存在变量 SRC_FILES 中
-file(GLOB SRC_FILES "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.c" "${SRC_DIR}/*.cu")
+# All source files in src folder are stored in SRC_FILES variable
+file(GLOB SRC_FILES "${SRC_DIR}/*.c" "${SRC_DIR}/*.cpp" "${SRC_DIR}/*.cc" "${SRC_DIR}/*.cxx" "${SRC_DIR}/*.cu")
 
-# 输出文件列表（可选）
+# Output file list information (optional)
 message(STATUS "Src files: ${SRC_FILES}")
 
-# 指定生成目标
+# Add generate target
 add_executable(${PROJECT_NAME} ${SRC_FILES})
 
-# find package
+# Set the installation Path
+set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
+
+# Set installation rules
+install(TARGETS ${PROJECT_NAME} DESTINATION bin)
+
+# Find CUDA package
 find_package(CUDAToolkit REQUIRED)
 
-#REQUIRED: 如果指定的包找不到，CMake 将报错并停止进一步的配置过程。这是确保项目依赖性的关键参数。
-#QUIET: 当设置为 QUIET 时，即使找不到包，CMake 也不会在控制台输出任何警告或错误信息。这通常用于可选依赖项。
-#MODULE: 这个参数告诉 CMake 查找的是 CMake 模块文件（.cmake 文件），而不是包配置文件
+#REQUIRED: If the specified package is not found, CMake will throw an error and stop further configuration. This is a key parameter to ensure project dependency.
+#QUIET: When set to QUIET, CMake will not print any warnings or errors to the console even if the package is not found. This is typically used for optional dependencies.
+#MODULE: This tells CMake to look for CMake module files (.cmake files) instead of package configuration files
 
 # Add CUDA header directory (locally)
 target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
 
-#PRIVATE：链接的库仅对目标自身可见。
-#PUBLIC：链接的库对目标自身和链接到该目标的所有其他目标都可见。
-#INTERFACE：链接的库仅对链接到该目标的其他目标可见。
+target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
+target_include_directories(${PROJECT_NAME} PRIVATE ${COMMON_DIR})
+
+#PRIVATE: The linked library is only visible to the target itself.
+#PUBLIC: The linked library is visible to the target itself and to all other targets linked to the target.
+#INTERFACE: Linked libraries are only visible to other targets linked to that target.
 
 # Add CUDA header directory (globally)
 #include_directories(${CUDA_INCLUDE_DIRS})
@@ -46,11 +55,23 @@ target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
 # Linked CUDA library
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_CUDART_LIBRARY})
 
-# Linked cublas library
+# Linked cuBLAS library
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cublas_LIBRARY})
 
-# Linked curand library
+# Linked cuFFT library
+#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cufft_LIBRARY})
+
+# Linked cuSOLVER library
+#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cusolver_LIBRARY})
+
+# Linked cuSPARSE library
+#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cusparse_LIBRARY})
+
+# Linked cuRAND library
 target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_curand_LIBRARY})
 
-# Linked openMP library
+# Find OpenMP package
+#find_package(OpenMP REQUIRED)
+
+# Linked OpenMP library
 #target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)
