@@ -3,3 +3,6 @@
 
 # clion cmake-build folder
 **/cmake-build-*/
+
+# vscode configuration folder
+**/.vscode/
