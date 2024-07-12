@@ -96,6 +96,15 @@ __global__ void wmmaExample(const int M, const int N, const int K,
         int bRowIdx = warpId * WMMA_N;
         int bColIdx = kOffset;
 
+//        if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
+//            printf(" warpId = %d ",warpId);
+//            printf(" aRowIdx = %d ",aRowIdx);
+//            printf(" aColIdx = %d ",aColIdx);
+//            printf(" bRowIdx = %d ",bRowIdx);
+//            printf(" bColIdx = %d ",bColIdx);
+//            printf("\n");
+//        }
+
         const auto aTileOffsetPrt = mtrA + aRowIdx + aColIdx * lda;
         const auto bTileOffsetPrt = mtrB + bRowIdx + bColIdx * ldb;
 
@@ -109,8 +118,16 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
     int cRowIdx = warpId * WMMA_M;
     int cColIdx = warpId * WMMA_N;
+    int cOffset = cRowIdx + cColIdx * ldc;
 
     const auto cTileOffsetPrt = mtrC + cRowIdx + cColIdx * ldc;
+    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
+        printf(" warpId = %d ",warpId);
+        printf(" cRowIdx = %d ",cRowIdx);
+        printf(" cColIdx = %d ",cColIdx);
+        printf(" cRowIdx + cColIdx * ldc = %d ",cRowIdx + cColIdx * ldc);
+        printf("\n");
+    }
 
     if (cRowIdx < M && cColIdx < N) {
         wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
@@ -150,6 +167,7 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
             }
         }
     }
+    fflush(stderr);
 
     free(dataHost);
     free(dataHost2);
