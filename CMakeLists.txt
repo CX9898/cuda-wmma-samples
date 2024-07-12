@@ -10,6 +10,7 @@ enable_language(CUDA)
 
 # Sets the C++ standard used by the project
 set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CUDA_STANDARD 11)
 
 # Specifies which GPU architectures are supported when compiling CUDA code (optional)
 set(CMAKE_CUDA_ARCHITECTURES 70)
