@@ -144,6 +144,7 @@ int main() {
         wmmaExample<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                        alpha, beta,
                                                        aFp16, bFp16, cWmmaEx);
+        printf("%s\n",cudaGetErrorString(cudaGetLastError()));
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
