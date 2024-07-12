@@ -134,7 +134,7 @@ __global__ void convertFp32ToFp16 (half *out, float *in, int n) {
     }
 }
 
-int simple(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
     float *a_fp32;
     float *b_fp32;
     half *a_fp16;
