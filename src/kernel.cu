@@ -70,66 +70,64 @@ __global__ void wmma_example(int M, int N, int K, float alpha, float beta, half 
     }
 }
 
-//
+// Tile using a 1D grid
 __global__ void wmmaExample(const int M, const int N, const int K,
                             const float alpha, const float beta,
                             const half *mtrA, const half *mtrB, float *mtrC) {
     // Leading dimensions. Packed with no transpositions.
     int lda = K;
-    int ldb = M;
+    int ldb = N;
     int ldc = N;
 
-    // Tile using a 2D grid
-    int warpIdM = (int) (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
-    int warpIdN = (int) (blockIdx.y * blockDim.y + threadIdx.y);
+    int warpId = (int) (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
 
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
     wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
+
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag; // Fragment accumulators
     wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
     wmma::fill_fragment(accFrag, 0.0f);
 
-    for (int i = 0; i < K; i += WMMA_K) {
-        int aRowLoc = warpIdM * WMMA_M;
-        int aColLoc = i;
+    for (int kOffset = 0; kOffset < K; kOffset += WMMA_K) {
+        int aRowIdx = kOffset;
+        int aColIdx = warpId * WMMA_M;
 
-        int bRowLoc = i;
-        int bColLoc = warpIdN * WMMA_N;
+        int bRowIdx = warpId * WMMA_N;
+        int bColIdx = kOffset;
 
-        const auto aTilePrt = mtrA;
-        const auto bTilePrt = mtrB;
+        const auto aTileOffsetPrt = mtrA + aRowIdx + aColIdx * lda;
+        const auto bTileOffsetPrt = mtrB + bRowIdx + bColIdx * ldb;
 
-        if (aRowLoc < M && aColLoc < K && bRowLoc < K && bColLoc < N) {
-            wmma::load_matrix_sync(aFrag, aTilePrt, K);
-            wmma::load_matrix_sync(bFrag, bTilePrt, N);
+        if (aRowIdx < K && aColIdx < M && bRowIdx < N && bColIdx < K) {
+            wmma::load_matrix_sync(aFrag, aTileOffsetPrt, lda);
+            wmma::load_matrix_sync(bFrag, bTileOffsetPrt, ldb);
 
             wmma::mma_sync(accFrag, aFrag, bFrag, accFrag);
         }
-
     }
 
-    int cRowLoc = warpIdM * WMMA_M;
-    int cColLoc = warpIdN * WMMA_N;
+    int cRowIdx = warpId * WMMA_M;
+    int cColIdx = warpId * WMMA_N;
 
-    const auto cTilePrt = mtrC + cRowLoc + cColLoc * ldc;
+    const auto cTileOffsetPrt = mtrC + cRowIdx + cColIdx * ldc;
 
-    if (cRowLoc < M && cColLoc < N) {
-        wmma::load_matrix_sync(cFrag, cTilePrt, ldc, wmma::mem_row_major);
+    if (cRowIdx < M && cColIdx < N) {
+        wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
 
 #pragma unroll
         for (int i = 0; i < cFrag.num_elements; ++i) {
             cFrag.x[i] = alpha * accFrag.x[i] + beta * cFrag.x[i];
         }
 
-        wmma::store_matrix_sync(cTilePrt, cFrag, ldc, wmma::mem_row_major);
+        wmma::store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_row_major);
     }
 
 }
 
 /* error checking */
 bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
-    fprintf(stdout,"\nChecking results...\n");
+    fprintf(stdout, "\nChecking results...\n");
 
     float *dataHost = (float *) malloc(num * sizeof(float));
     float *dataHost2 = (float *) malloc(num * sizeof(float));
@@ -148,7 +146,7 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
         if (relativeErr >= eps) {
             ++errors;
             if (errors < 10) {
-                fprintf(stderr, "error : dataDev1 = %f, dataDev2 = %f\n", oneData1, oneData2);
+                fprintf(stderr, "error : data1 = %f, data2 = %f\n", oneData1, oneData2);
             }
         }
     }
@@ -159,10 +157,11 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
     if (errors > 0) {
         fprintf(stderr, "Inconsistent data! %d errors!\n", errors);
 
+        fflush(stderr);
         return false;
     }
 
-    fprintf(stdout,"Result validates successfully.\n");
+    fprintf(stdout, "Result validates successfully.\n");
 
     return true;
 }

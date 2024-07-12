@@ -121,7 +121,7 @@ int main() {
 
         float wmmaTime;
         cudaErrCheck(cudaEventElapsedTime(&wmmaTime, startWmmaEx, stopWmmaEx));
-        printf("wmmaExample time : %fms\n", wmmaTime);
+        printf("wmma_example time : %fms\n", wmmaTime);
 
         cudaErrCheck(cudaEventDestroy(startWmmaEx));
         cudaErrCheck(cudaEventDestroy(stopWmmaEx));
@@ -137,11 +137,13 @@ int main() {
         cudaErrCheck(cudaEventCreate(&startWmmaEx));
         cudaErrCheck(cudaEventCreate(&stopWmmaEx));
 
-        dim3 gridDim;
-        dim3 blockDim;
+        int numThreadPerBlocks = 1024;
+        int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
 
         cudaErrCheck(cudaEventRecord(startWmmaEx));
-        wmmaExample<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmmaEx);
+        wmmaExample<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
+                                                       alpha, beta,
+                                                       aFp16, bFp16, cWmmaEx);
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
@@ -154,10 +156,15 @@ int main() {
     }
 
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
-        printf("The results of cublas and wmmaEx are inconsistent\n");
+        printf("The results of cublas and wmmaEx are inconsistent!\n");
+    } else {
+        printf("cublas, wmmaExample Check passes!\n");
     }
+
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
-        printf("The results of cublas and wmmaEx2 are inconsistent\n");
+        printf("The results of cublas and wmmaEx2 are inconsistent!\n");
+    } else {
+        printf("cublas, wmma_example Check passes!\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));
