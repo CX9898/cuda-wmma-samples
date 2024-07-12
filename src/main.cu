@@ -154,10 +154,10 @@ int main() {
     }
 
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
-        fprintf(stderr,"The results of cublas and wmmaEx are inconsistent\n");
+        printf("The results of cublas and wmmaEx are inconsistent\n");
     }
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
-        fprintf(stderr,"The results of cublas and wmmaEx2 are inconsistent\n");
+        printf("The results of cublas and wmmaEx2 are inconsistent\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));

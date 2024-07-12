@@ -129,7 +129,7 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
 /* error checking */
 bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
-    printf("\nChecking results...\n");
+    fprintf(stdout,"\nChecking results...\n");
 
     float *dataHost = (float *) malloc(num * sizeof(float));
     float *dataHost2 = (float *) malloc(num * sizeof(float));
@@ -162,7 +162,7 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
         return false;
     }
 
-    printf("Result validates successfully.\n");
+    fprintf(stdout,"Result validates successfully.\n");
 
     return true;
 }
