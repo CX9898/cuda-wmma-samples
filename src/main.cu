@@ -44,6 +44,7 @@ int main() {
 
         cudaErrCheck(cudaMemcpy(cCublas, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
         cudaErrCheck(cudaMemcpy(cWmmaEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaEx2, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
 
@@ -152,9 +153,9 @@ int main() {
         cudaErrCheck(cudaEventDestroy(stopWmmaEx));
     }
 
-//    if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
-//        fprintf(stderr,"The results of cublas and wmmaEx are inconsistent\n");
-//    }
+    if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
+        fprintf(stderr,"The results of cublas and wmmaEx are inconsistent\n");
+    }
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
         fprintf(stderr,"The results of cublas and wmmaEx2 are inconsistent\n");
     }
