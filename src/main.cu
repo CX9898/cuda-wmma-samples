@@ -59,11 +59,11 @@ int main() {
     {
         printf("Running with cuBLAS...\n");
 
-        cudaEvent_t startcublas;
-        cudaEvent_t stopcublas;
+        cudaEvent_t startCublas;
+        cudaEvent_t stopCublas;
 
-        cudaErrCheck(cudaEventCreate(&startcublas));
-        cudaErrCheck(cudaEventCreate(&stopcublas));
+        cudaErrCheck(cudaEventCreate(&startCublas));
+        cudaErrCheck(cudaEventCreate(&stopCublas));
 
         cublasHandle_t cublasHandle;
         cublasErrCheck(cublasCreate(&cublasHandle));
@@ -71,7 +71,7 @@ int main() {
         // Use tensor cores
         cublasErrCheck(cublasSetMathMode(cublasHandle, CUBLAS_TENSOR_OP_MATH));
 
-        cudaErrCheck(cudaEventRecord(startcublas));
+        cudaErrCheck(cudaEventRecord(startCublas));
         cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
@@ -80,17 +80,17 @@ int main() {
                                     &beta,
                                     cCublas, CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
-        cudaErrCheck(cudaEventRecord(stopcublas));
-        cudaErrCheck(cudaEventSynchronize(stopcublas));
+        cudaErrCheck(cudaEventRecord(stopCublas));
+        cudaErrCheck(cudaEventSynchronize(stopCublas));
 
         float cublasTime;
-        cudaErrCheck(cudaEventElapsedTime(&cublasTime, startcublas, stopcublas));
+        cudaErrCheck(cudaEventElapsedTime(&cublasTime, startCublas, stopCublas));
         printf("cublasGemmEx time : %fms\n", cublasTime);
 
         cublasErrCheck(cublasDestroy(cublasHandle));
 
-        cudaErrCheck(cudaEventDestroy(startcublas));
-        cudaErrCheck(cudaEventDestroy(stopcublas));
+        cudaErrCheck(cudaEventDestroy(startCublas));
+        cudaErrCheck(cudaEventDestroy(stopCublas));
     }
 
     /* using wmma-example computation */
@@ -106,7 +106,7 @@ int main() {
         dim3 gridDim;
         dim3 blockDim;
 
-        // blockDim.x must be a multple of warpSize
+        // blockDim.x must be a multiple of warpSize
         // 128x4 means we have 16 warps and a block computes a 64x64 output tile
         blockDim.x = 128;
         blockDim.y = 4;
@@ -157,13 +157,13 @@ int main() {
     }
 
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
-        printf("The results of cublas and wmmaEx are inconsistent!\n");
+        printf("error! cublas, wmmaExample Check no passes!\n");
     } else {
         printf("cublas, wmmaExample Check passes!\n");
     }
 
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
-        printf("The results of cublas and wmmaEx2 are inconsistent!\n");
+        printf("error! cublas, wmma_example Check no passes!\n");
     } else {
         printf("cublas, wmma_example Check passes!\n");
     }
