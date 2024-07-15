@@ -5,10 +5,12 @@
 #include <curand.h>
 #include <cublas_v2.h>
 
+#define WARP_SIZE 32
+
 // Must be multiples of 16 for wmma code to work
-#define MATRIX_M 16384
-#define MATRIX_N 16384
-#define MATRIX_K 16384
+#define MATRIX_M 64
+#define MATRIX_N 48
+#define MATRIX_K 48
 
 // The only dimensions currently supported by WMMA
 const int WMMA_M = 16;

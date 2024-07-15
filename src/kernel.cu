@@ -79,7 +79,15 @@ __global__ void wmmaExample(const int M, const int N, const int K,
     int ldb = N;
     int ldc = N;
 
-    int warpId = (int) (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
+    int warpId = (int) (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
+
+    // Due to the use of 1D grid,
+    // warp first iterates over the columns of the resulting matrix and then over the rows
+    int cRowIdx = (warpId * WMMA_M) % M;
+    int cColIdx = 0;
+    if (warpId > 0) {
+        cColIdx = warpId * WMMA_M / M * WMMA_N;
+    }
 
     wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
     wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
@@ -89,17 +97,18 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
     wmma::fill_fragment(accFrag, 0.0f);
 
-    for (int kOffset = 0; kOffset < K; kOffset += WMMA_K) {
-        int aRowIdx = warpId * WMMA_M;
+    for (int kOffset = 0; kOffset <= K - kOffset; kOffset += WMMA_K) {
+        int aRowIdx = cRowIdx;
         int aColIdx = kOffset;
 
         int bRowIdx = kOffset;
-        int bColIdx = warpId * WMMA_N;
+        int bColIdx = cColIdx;
 
-        const auto aTileOffsetPrt = mtrA + aRowIdx + aColIdx * lda;
-        const auto bTileOffsetPrt = mtrB + bRowIdx + bColIdx * ldb;
+        const auto aTileOffsetPrt = mtrA + aRowIdx * lda + aColIdx;
+        const auto bTileOffsetPrt = mtrB + bRowIdx * ldb + bColIdx;
 
-        if (aRowIdx < K && aColIdx < M && bRowIdx < N && bColIdx < K) {
+        // Bounds checking
+        if (aRowIdx < M && aColIdx < K && bRowIdx < N && bColIdx < K) {
             wmma::load_matrix_sync(aFrag, aTileOffsetPrt, lda);
             wmma::load_matrix_sync(bFrag, bTileOffsetPrt, ldb);
 
@@ -107,17 +116,18 @@ __global__ void wmmaExample(const int M, const int N, const int K,
         }
     }
 
-    int cRowIdx = warpId * WMMA_M;
-    int cColIdx = warpId * WMMA_N;
+//    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
+//        printf(" warpId = %d  cRowIdx = %d  cColIdx = %d \n", warpId, cRowIdx, cColIdx);
+//    }
+    const auto cTileOffsetPrt = mtrC + cRowIdx * ldc + cColIdx;
 
-    const auto cTileOffsetPrt = mtrC + cRowIdx + cColIdx * ldc;
-
+    // Bounds checking
     if (cRowIdx < M && cColIdx < N) {
         wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
 
 #pragma unroll
-        for (int i = 0; i < cFrag.num_elements; ++i) {
-            cFrag.x[i] = alpha * accFrag.x[i] + beta * cFrag.x[i];
+        for (int idx = 0; idx < cFrag.num_elements; ++idx) {
+            cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
         }
 
         wmma::store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_row_major);
@@ -127,7 +137,7 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
 /* error checking */
 bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
-    printf( "\nChecking results...\n");
+    printf("\nChecking results...\n");
 
     float *dataHost = (float *) malloc(num * sizeof(float));
     float *dataHost2 = (float *) malloc(num * sizeof(float));
@@ -146,8 +156,10 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
         if (relativeErr >= eps) {
             ++errors;
             if (errors < 10) {
-                printf("error : data1 = %f, data2 = %f\n", oneData1, oneData2);
+                printf("Error : idx = %d data1 = %f, data2 = %f\n", idx, oneData1, oneData2);
             }
+        } else {
+            printf("Pass : idx = %d data1 = %f, data2 = %f\n", idx, oneData1, oneData2);
         }
     }
 

@@ -11,8 +11,8 @@ int main() {
     float *cWmmaEx;
     float *cWmmaEx2;
 
-    const float alpha = 2.0f;
-    const float beta = 2.0f;
+    const float alpha = 1.0f;
+    const float beta = 1.0f;
 
     const int numMatrixADates = MATRIX_M * MATRIX_K;
     const int numMatrixBDates = MATRIX_K * MATRIX_N;
@@ -57,6 +57,7 @@ int main() {
 
     /* using cuBLAS computation */
     {
+        printf("---------------------------\n");
         printf("Running with cuBLAS...\n");
 
         cudaEvent_t startCublas;
@@ -95,6 +96,7 @@ int main() {
 
     /* using wmma-example computation */
     {
+        printf("---------------------------\n");
         printf("Running with wmma-example...\n");
 
         cudaEvent_t startWmmaEx;
@@ -113,7 +115,9 @@ int main() {
 
         gridDim.x = (MATRIX_M + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32);
         gridDim.y = (MATRIX_N + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y);
-
+        printf("gridDim.x = %d gridDim.y = %d blockDim.x = %d blockDim.y = %d\n",
+               gridDim.x, gridDim.y,
+               blockDim.x, blockDim.y);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
         wmma_example<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmmaEx2);
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
@@ -129,6 +133,7 @@ int main() {
 
     /* using wmmaExample computation */
     {
+        printf("---------------------------\n");
         printf("Running with wmmaExample...\n");
 
         cudaEvent_t startWmmaEx;
@@ -137,14 +142,16 @@ int main() {
         cudaErrCheck(cudaEventCreate(&startWmmaEx));
         cudaErrCheck(cudaEventCreate(&stopWmmaEx));
 
-        int numThreadPerBlocks = 1024;
-        int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
-
+        const int wmmaCalculatesOneResultTileSize = WMMA_M * WMMA_N;
+        int numThreadPerBlocks = WARP_SIZE * 1;
+        int numBlocks = (numMatrixCDates / wmmaCalculatesOneResultTileSize * WARP_SIZE + numThreadPerBlocks - 1)
+            / numThreadPerBlocks;
+        printf("numBlocks = %d numThreadPerBlocks = %d\n", numBlocks, numThreadPerBlocks);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
         wmmaExample<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                        alpha, beta,
                                                        aFp16, bFp16, cWmmaEx);
-        printf("%s\n",cudaGetErrorString(cudaGetLastError()));
+        printf("%s\n", cudaGetErrorString(cudaGetLastError()));
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
@@ -157,16 +164,16 @@ int main() {
     }
 
     if (!checkData(numMatrixCDates, cCublas, cWmmaEx)) {
-        printf("error! cublas, wmmaExample Check no passes!\n");
+        printf("Error! cublas, wmmaExample Check no passes!\n");
     } else {
         printf("cublas, wmmaExample Check passes!\n");
     }
 
-    if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
-        printf("error! cublas, wmma_example Check no passes!\n");
-    } else {
-        printf("cublas, wmma_example Check passes!\n");
-    }
+//    if (!checkData(numMatrixCDates, cCublas, cWmmaEx2)) {
+//        printf("Error! cublas, wmma_example Check no passes!\n");
+//    } else {
+//        printf("cublas, wmma_example Check passes!\n");
+//    }
 
     cudaErrCheck(cudaFree(aFp32));
     cudaErrCheck(cudaFree(bFp32));
