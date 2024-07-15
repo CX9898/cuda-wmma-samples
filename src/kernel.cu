@@ -62,6 +62,14 @@ __global__ void wmma_example(int M, int N, int K, float alpha, float beta, half 
 
 #pragma unroll
         for (int i = 0; i < c_frag.num_elements; i++) {
+            if (blockIdx.x * blockDim.x + threadIdx.x == 0 && i == 1) {
+                printf("accFrag.x[%d] = %f, cFrag.x[%d] = %f, alpha * accFrag.x[idx] + beta * cFrag.x[idx] = %f\n",
+                       i,
+                       acc_frag.x[i],
+                       i,
+                       c_frag.x[i],
+                       alpha * acc_frag.x[i] + beta * c_frag.x[i]);
+            }
             c_frag.x[i] = alpha * acc_frag.x[i] + beta * c_frag.x[i];
         }
 
@@ -97,11 +105,11 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
     wmma::fill_fragment(accFrag, 0.0f);
 
-    for (int kOffset = 0; kOffset <= K - kOffset; kOffset += WMMA_K) {
+    for (int kIter = 0; kIter < K; kIter += WMMA_K) {
         int aRowIdx = cRowIdx;
-        int aColIdx = kOffset;
+        int aColIdx = kIter;
 
-        int bRowIdx = kOffset;
+        int bRowIdx = kIter;
         int bColIdx = cColIdx;
 
         const auto aTileOffsetPrt = mtrA + aRowIdx * lda + aColIdx;
@@ -116,9 +124,9 @@ __global__ void wmmaExample(const int M, const int N, const int K,
         }
     }
 
-//    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
-//        printf(" warpId = %d  cRowIdx = %d  cColIdx = %d \n", warpId, cRowIdx, cColIdx);
-//    }
+    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
+        printf(" warpId = %d  cRowIdx = %d  cColIdx = %d \n", warpId, cRowIdx, cColIdx);
+    }
     const auto cTileOffsetPrt = mtrC + cRowIdx * ldc + cColIdx;
 
     // Bounds checking
@@ -127,6 +135,14 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
 #pragma unroll
         for (int idx = 0; idx < cFrag.num_elements; ++idx) {
+            if (blockIdx.x * blockDim.x + threadIdx.x == 0 && idx == 1) {
+                printf("accFrag.x[%d] = %f, cFrag.x[%d] = %f, alpha * accFrag.x[idx] + beta * cFrag.x[idx] = %f\n",
+                       idx,
+                       accFrag.x[idx],
+                       idx,
+                       cFrag.x[idx],
+                       alpha * accFrag.x[idx] + beta * cFrag.x[idx]);
+            }
             cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
         }
 

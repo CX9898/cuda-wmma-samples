@@ -73,7 +73,7 @@ int main() {
         cublasErrCheck(cublasSetMathMode(cublasHandle, CUBLAS_TENSOR_OP_MATH));
 
         cudaErrCheck(cudaEventRecord(startCublas));
-        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
+        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_T,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
                                     aFp16, CUDA_R_16F, MATRIX_M,
