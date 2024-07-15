@@ -90,20 +90,11 @@ __global__ void wmmaExample(const int M, const int N, const int K,
     wmma::fill_fragment(accFrag, 0.0f);
 
     for (int kOffset = 0; kOffset < K; kOffset += WMMA_K) {
-        int aRowIdx = kOffset;
-        int aColIdx = warpId * WMMA_M;
+        int aRowIdx = warpId * WMMA_M;
+        int aColIdx = kOffset;
 
-        int bRowIdx = warpId * WMMA_N;
-        int bColIdx = kOffset;
-
-//        if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
-//            printf(" warpId = %d ",warpId);
-//            printf(" aRowIdx = %d ",aRowIdx);
-//            printf(" aColIdx = %d ",aColIdx);
-//            printf(" bRowIdx = %d ",bRowIdx);
-//            printf(" bColIdx = %d ",bColIdx);
-//            printf("\n");
-//        }
+        int bRowIdx = kOffset;
+        int bColIdx = warpId * WMMA_N;
 
         const auto aTileOffsetPrt = mtrA + aRowIdx + aColIdx * lda;
         const auto bTileOffsetPrt = mtrB + bRowIdx + bColIdx * ldb;
@@ -118,16 +109,8 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
     int cRowIdx = warpId * WMMA_M;
     int cColIdx = warpId * WMMA_N;
-    int cOffset = cRowIdx + cColIdx * ldc;
 
     const auto cTileOffsetPrt = mtrC + cRowIdx + cColIdx * ldc;
-    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
-        printf(" warpId = %d ",warpId);
-        printf(" cRowIdx = %d ",cRowIdx);
-        printf(" cColIdx = %d ",cColIdx);
-        printf(" cRowIdx + cColIdx * ldc = %d ",cRowIdx + cColIdx * ldc);
-        printf("\n");
-    }
 
     if (cRowIdx < M && cColIdx < N) {
         wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
@@ -144,7 +127,7 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
 /* error checking */
 bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
-    fprintf(stdout, "\nChecking results...\n");
+    printf( "\nChecking results...\n");
 
     float *dataHost = (float *) malloc(num * sizeof(float));
     float *dataHost2 = (float *) malloc(num * sizeof(float));
@@ -163,19 +146,17 @@ bool checkData(const int num, const float *dataDev1, const float *dataDev2) {
         if (relativeErr >= eps) {
             ++errors;
             if (errors < 10) {
-                fprintf(stderr, "error : data1 = %f, data2 = %f\n", oneData1, oneData2);
+                printf("error : data1 = %f, data2 = %f\n", oneData1, oneData2);
             }
         }
     }
-    fflush(stderr);
 
     free(dataHost);
     free(dataHost2);
 
     if (errors > 0) {
-        fprintf(stderr, "Inconsistent data! %d errors!\n", errors);
+        printf("Inconsistent data! %d errors!\n", errors);
 
-        fflush(stderr);
         return false;
     }
 

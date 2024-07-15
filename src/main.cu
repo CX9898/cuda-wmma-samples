@@ -137,10 +137,8 @@ int main() {
         cudaErrCheck(cudaEventCreate(&startWmmaEx));
         cudaErrCheck(cudaEventCreate(&stopWmmaEx));
 
-        int numThreadPerBlocks = 64;
-//        int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
-        int numBlocks = 1;
-
+        int numThreadPerBlocks = 1024;
+        int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
 
         cudaErrCheck(cudaEventRecord(startWmmaEx));
         wmmaExample<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
