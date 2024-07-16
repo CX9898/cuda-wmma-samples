@@ -4,18 +4,9 @@
 #include <mma.h>
 #include <curand.h>
 #include <cublas_v2.h>
+#include "matrixSetting.hpp"
 
 #define WARP_SIZE 32
-
-// Must be multiples of 16 for wmma code to work
-#define MATRIX_M 16
-#define MATRIX_N 16
-#define MATRIX_K 16
-
-// The only dimensions currently supported by WMMA
-const int WMMA_M = 16;
-const int WMMA_N = 16;
-const int WMMA_K = 16;
 
 // Define some error checking macros.
 #define cudaErrCheck(stat) { cudaErrCheck_((stat), __FILE__, __LINE__); }
