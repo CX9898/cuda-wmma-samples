@@ -38,4 +38,4 @@ __global__ void wmmaExample(const int M, const int N, const int K,
 
 __global__ void wmma_example(int M, int N, int K, float alpha, float beta, half *a, half *b, float *c);
 
-bool checkData(const int num, const float *dataDev1, const float *dataDev2);
+bool checkDevData(const int num, const float *dataDev1, const float *dataDev2);

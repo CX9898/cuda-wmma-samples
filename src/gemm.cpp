@@ -19,8 +19,8 @@ template<typename T>
 void gemmHost(const int M, const int N, const int K,
               const T alpha, const T beta,
               const std::vector<T> &mtrA, const std::vector<T> &mtrB, std::vector<T> &mtrC) {
-    const int numMtrC = M * N;
-    mtrC.resize(numMtrC);
+    const int mtrCSize = M * N;
+    mtrC.resize(mtrCSize);
 
 #pragma omp parallel for
     for (int cRowTileIter = 0; cRowTileIter < M; cRowTileIter += WMMA_M) {
@@ -39,7 +39,36 @@ void gemmHost(const int M, const int N, const int K,
             }
             auto cOffsetPtr = mtrC.data() + cRowTileIter * ldc + cColTileIter;
 
-
         }
+    }
+}
+
+// All three matrices A,B,C must be row-major ordered
+template<typename T>
+void mmaHost(const int M, const int N, const int K,
+             const T alpha, const T beta,
+             const std::vector<T> &mtrA, const std::vector<T> &mtrB, std::vector<T> &mtrC) {
+    const int mtrCSize = M * N;
+    mtrC.resize(mtrCSize);
+
+    const int lda = K;
+    const int ldb = N;
+    const int ldc = N;
+
+#pragma omp parallel for
+    for (int idx = 0; idx < mtrCSize; ++idx) {
+        const int cRow = idx / ldc;
+        const int cCol = idx % ldc;
+
+        const int aRowOffset = cRow * lda;
+        const int bColOffset = cCol;
+
+        int counter = 0;
+
+        for (int kIter = 0; kIter < K; ++kIter) {
+            counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];
+        }
+
+        mtrC[cRow * ldc + cCol] = counter;
     }
 }

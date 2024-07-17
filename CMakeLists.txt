@@ -2,11 +2,13 @@
 cmake_minimum_required(VERSION 3.26)
 
 # Project Information
-project(wmma-sample)
+project(wmma-samples)
 
 # Add languages needed when building the project
 enable_language(CXX)
 enable_language(CUDA)
+
+find_package(CUDAToolkit REQUIRED)
 
 # Sets the C++ standard used by the project
 set(CMAKE_CXX_STANDARD 11)
@@ -34,42 +36,31 @@ set(CMAKE_INSTALL_PREFIX "${CMAKE_SOURCE_DIR}")
 # Set installation rules
 install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 
-# Add CUDA header directory (locally)
-target_include_directories(${PROJECT_NAME} PRIVATE ${CUDA_INCLUDE_DIRS})
-
-#PRIVATE: The linked library is only visible to the target itself.
-#PUBLIC: The linked library is visible to the target itself and to all other targets linked to the target.
-#INTERFACE: Linked libraries are only visible to other targets linked to that target.
-
-# Add CUDA header directory (globally)
-#include_directories(${CUDA_INCLUDE_DIRS})
-
+# Add header directory (locally)
 target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
 
-# Linked CUDA library
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_CUDART_LIBRARY})
+target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cudart_LIBRARY})
+
+# Linked cuda Runtime library
+target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cudart)
 
 # Linked cuBLAS library
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cublas_LIBRARY})
+target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cublas)
 
 # Linked cuFFT library
-#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cufft_LIBRARY})
-
-# Linked cuSOLVER library
-#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cusolver_LIBRARY})
-
-# Linked cuSPARSE library
-#target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cusparse_LIBRARY})
+#target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cufft)
 
 # Linked cuRAND library
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_curand_LIBRARY})
+target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::curand)
+
+# Linked cuSOLVER library
+#target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cusolver)
+
+# Linked cuSPARSE library
+#target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cusparse)
 
 # Find OpenMP package
 find_package(OpenMP REQUIRED)
-
-#REQUIRED: If the specified package is not found, CMake will throw an error and stop further configuration. This is a key parameter to ensure project dependency.
-#QUIET: When set to QUIET, CMake will not print any warnings or errors to the console even if the package is not found. This is typically used for optional dependencies.
-#MODULE: This tells CMake to look for CMake module files (.cmake files) instead of package configuration files
 
 # Linked OpenMP library
 target_link_libraries(${PROJECT_NAME} PRIVATE OpenMP::OpenMP_CXX)

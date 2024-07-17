@@ -6,3 +6,6 @@
 
 # vscode configuration folder
 **/.vscode/
+
+# build folder
+/build/
