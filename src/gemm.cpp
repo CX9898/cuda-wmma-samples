@@ -44,10 +44,9 @@ void gemmHost(const int M, const int N, const int K,
 }
 
 // All three matrices A,B,C must be row-major ordered
-template<typename T>
 void mmaHost(const int M, const int N, const int K,
-             const T alpha, const T beta,
-             const std::vector<T> &mtrA, const std::vector<T> &mtrB, std::vector<T> &mtrC) {
+             const float alpha, const float beta,
+             const std::vector<float> &mtrA, const std::vector<float> &mtrB, std::vector<float> &mtrC) {
     const int mtrCSize = M * N;
     mtrC.resize(mtrCSize);
 
@@ -63,7 +62,7 @@ void mmaHost(const int M, const int N, const int K,
         const int aRowOffset = cRow * lda;
         const int bColOffset = cCol;
 
-        int counter = 0;
+        float counter = 0.0;
 
         for (int kIter = 0; kIter < K; ++kIter) {
             counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];

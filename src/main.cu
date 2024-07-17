@@ -1,5 +1,6 @@
 #include "kernel.cuh"
 #include "host.hpp"
+#include "cudaErrorCheck.hpp"
 
 int main() {
     float *aFp32;
@@ -64,8 +65,7 @@ int main() {
     cudaMemcpy(bHost.data(), bFp32, numMatrixBDates, cudaMemcpyDeviceToHost);
     cudaMemcpy(cHost.data(), cWmmaEx, numMatrixCDates, cudaMemcpyDeviceToHost);
 
-//    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
-
+    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
 
     /* using cuBLAS computation */
     {
@@ -181,16 +181,16 @@ int main() {
         printf("cublas, wmmaExample Check passes!\n");
     }
 
-//    if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx2)) {
-//        printf("Error! cublas, wmma_example Check no passes!\n");
-//    } else {
-//        printf("cublas, wmma_example Check passes!\n");
-//    }
+    if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx2)) {
+        printf("Error! cublas, wmma_example Check no passes!\n");
+    } else {
+        printf("cublas, wmma_example Check passes!\n");
+    }
 
     if (!checkData(numMatrixCDates, cHost, cWmmaEx)) {
         printf("Error! mmaHost, wmmaExample Check no passes!\n");
     } else {
-        printf("cublas, wmmaExample Check passes!\n");
+        printf("cHost, wmmaExample Check passes!\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));
