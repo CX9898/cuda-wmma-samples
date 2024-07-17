@@ -190,7 +190,7 @@ int main() {
     if (!checkData(numMatrixCDates, cHost, cWmmaEx)) {
         printf("Error! mmaHost, wmmaExample Check no passes!\n");
     } else {
-        printf("cHost, wmmaExample Check passes!\n");
+        printf("mmaHost, wmmaExample Check passes!\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));
