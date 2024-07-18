@@ -1,4 +1,4 @@
-#include "kernel.cuh"
+#include "kernelFunc.cuh"
 
 using namespace nvcuda;
 
@@ -177,4 +177,6 @@ __global__ void mmaExampleCommon(const int M, const int N, const int K,
 
     mtrC[cRow * ldc + cCol] = float((half)alpha * counter) + beta * mtrC[cRow * ldc + cCol];
 }
+
+__global__ void
 

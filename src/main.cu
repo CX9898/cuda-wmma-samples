@@ -1,4 +1,4 @@
-#include "kernel.cuh"
+#include "kernelFunc.cuh"
 #include "host.hpp"
 #include "cudaErrorCheck.hpp"
 
