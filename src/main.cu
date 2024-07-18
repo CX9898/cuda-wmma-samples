@@ -255,6 +255,12 @@ int main() {
         printf("wmmaExampleCommon, wmmaExample2DGrid Check passes!\n");
     }
 
+    if (!checkDevData(numMatrixCDates, cWmmaExample1DGrid, cWmmaExample2DGrid)) {
+        printf("Error! wmmaExample1DGrid, wmmaExample2DGrid Check no passes!\n");
+    } else {
+        printf("wmmaExample1DGrid, wmmaExample2DGrid Check passes!\n");
+    }
+
     cudaErrCheck(cudaFree(aFp32));
     cudaErrCheck(cudaFree(bFp32));
     cudaErrCheck(cudaFree(aFp16));
