@@ -15,7 +15,9 @@ __global__ void convertFp32ToFp16(half *out, float *in, int n) {
 //  3) Neither A nor B are transposed.
 // Note: This is NOT a high performance example but is for demonstration purposes only
 //       For a high performance code please use the GEMM provided in cuBLAS.
-__global__ void wmma_example(int M, int N, int K, float alpha, float beta, half *a, half *b, float *c) {
+__global__ void wmma_example(int M, int N, int K,
+                             float alpha, float beta,
+                             half *a, half *b, float *c) {
     // Leading dimensions. Packed with no transpositions.
     int lda = M;
     int ldb = K;
@@ -153,9 +155,9 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
 
 __global__ void mmaExampleCommon(const int M, const int N, const int K,
                                  const float alpha, const float beta,
-                                 const half *mtrA, const half *mtrB, float *mtrC){
+                                 const half *mtrA, const half *mtrB, float *mtrC) {
     const int idx = blockDim.x * blockIdx.x + threadIdx.x;
-    if(idx >= M * N){
+    if (idx >= M * N) {
         return;
     }
 
@@ -175,8 +177,62 @@ __global__ void mmaExampleCommon(const int M, const int N, const int K,
         counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];
     }
 
-    mtrC[cRow * ldc + cCol] = float((half)alpha * counter) + beta * mtrC[cRow * ldc + cCol];
+    mtrC[cRow * ldc + cCol] = float((half) alpha * counter) + beta * mtrC[cRow * ldc + cCol];
 }
 
-__global__ void
+// Tile using a 2D grid
+__global__ void wmmaExample2DGrid(const int M, const int N, const int K,
+                                  const float alpha, const float beta,
+                                  const half *mtrA, const half *mtrB, float *mtrC) {
+
+    const int warpIdM = (int) (blockDim.x * blockIdx.x + threadIdx.x) / WARP_SIZE;
+    const int warpIdN = (int) (blockDim.y * blockIdx.y + threadIdx.y);
+
+    const int cRowId = warpIdM * WMMA_M;
+    const int cColId = warpIdN * WMMA_N;
+
+    if (cRowId >= M && cColId >= N) {
+        return;
+    }
+
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
+
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+
+    wmma::fill_fragment(accFrag, 0.0f);
+
+    const int lda = K;
+    const int ldb = N;
+    const int ldc = N;
+
+    for (int kIter = 0; kIter < K; kIter += WMMA_K) {
+        const int aRowId = cRowId;
+        const int aColId = kIter;
+
+        const int bRowId = kIter;
+        const int bColId = cColId;
+
+        if (aRowId < M && aColId < K && bRowId < K && bColId < N) {
+            const auto aOffsetPtr = mtrA + aRowId * lda + aColId;
+            const auto bOffsetPtr = mtrB + bRowId * ldb + bColId;
+
+            wmma::load_matrix_sync(aFrag, aOffsetPtr, lda);
+            wmma::load_matrix_sync(bFrag, bOffsetPtr, ldb);
+
+            wmma::mma_sync(accFrag, aFrag, bFrag, accFrag);
+        }
+    }
+
+    const auto cOffsetPtr = mtrC + cRowId * ldc + cColId;
+    wmma::load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_row_major);
+
+#pragma unroll
+    for (int idx = 0; idx < cFrag.num_elements; ++idx) {
+        cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
+    }
+
+    wmma::store_matrix_sync(cOffsetPtr,cFrag,ldc, wmma::mem_row_major);
+}
 

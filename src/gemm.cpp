@@ -1,4 +1,4 @@
-#include "host.hpp"
+#include "hostFunc.hpp"
 
 template<typename T>
 void matrixTileMultiplication(const int tileSizeM, const int tileSizeN, const int tileSizeK,

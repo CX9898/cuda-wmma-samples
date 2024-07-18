@@ -2,7 +2,7 @@
 #include <cstdlib>
 #include <cuda_runtime.h>
 
-#include "host.hpp"
+#include "hostFunc.hpp"
 #include "cudaErrorCheck.hpp"
 
 bool checkData(const int num, const float *data1, const float *data2) {

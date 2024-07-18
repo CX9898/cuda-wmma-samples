@@ -1,5 +1,5 @@
 #include "kernelFunc.cuh"
-#include "host.hpp"
+#include "hostFunc.hpp"
 #include "cudaErrorCheck.hpp"
 
 int main() {
@@ -10,9 +10,10 @@ int main() {
     half *bFp16;
 
     float *cWmmaExampleCommon;
-    float *cCublas;
-    float *cWmmaEx;
-    float *cWmmaEx2;
+    float *cCublasGemmEx;
+    float *cWmmaExample1DGrid;
+    float *cWmmaExample2DGrid;
+    float *cWmma_example;
 
     const float alpha = 2.0f;
     const float beta = 2.0f;
@@ -21,16 +22,20 @@ int main() {
     const int numMatrixBDates = MATRIX_K * MATRIX_N;
     const int numMatrixCDates = MATRIX_M * MATRIX_N;
 
-    cudaErrCheck(cudaMalloc((void **) &aFp32, numMatrixADates * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &bFp32, numMatrixBDates * sizeof(float)));
+    /* Allocated memory in the global memory of the GPU */
+    {
+        cudaErrCheck(cudaMalloc((void **) &aFp32, numMatrixADates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &bFp32, numMatrixBDates * sizeof(float)));
 
-    cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
-    cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
+        cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
+        cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
 
-    cudaErrCheck(cudaMalloc((void **) &cWmmaExampleCommon, numMatrixCDates * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &cCublas, numMatrixCDates * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &cWmmaEx, numMatrixCDates * sizeof(float)));
-    cudaErrCheck(cudaMalloc((void **) &cWmmaEx2, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExampleCommon, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cCublasGemmEx, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExample1DGrid, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExample2DGrid, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmma_example, numMatrixCDates * sizeof(float)));
+    }
 
     /* using curand to initialize */
     {
@@ -47,9 +52,10 @@ int main() {
         curandErrCheck(curandGenerateUniform(curandGen, c, numMatrixCDates));
 
         cudaErrCheck(cudaMemcpy(cWmmaExampleCommon, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cCublas, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaEx2, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cCublasGemmEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample1DGrid, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmma_example, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
 
@@ -66,7 +72,7 @@ int main() {
 //
 //    cudaMemcpy(aHost.data(), aFp16, numMatrixADates, cudaMemcpyDeviceToHost);
 //    cudaMemcpy(bHost.data(), bFp16, numMatrixBDates, cudaMemcpyDeviceToHost);
-//    cudaMemcpy(cHost.data(), cWmmaEx, numMatrixCDates, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(cHost.data(), cWmmaExample1DGrid, numMatrixCDates, cudaMemcpyDeviceToHost);
 //
 //    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
 
@@ -103,7 +109,7 @@ int main() {
                                     aFp16, CUDA_R_16F, MATRIX_M,
                                     bFp16, CUDA_R_16F, MATRIX_K,
                                     &beta,
-                                    cCublas, CUDA_R_32F, MATRIX_M,
+                                    cCublasGemmEx, CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
         cudaErrCheck(cudaEventRecord(stopCublas));
         cudaErrCheck(cudaEventSynchronize(stopCublas));
@@ -143,7 +149,7 @@ int main() {
                gridDim.x, gridDim.y,
                blockDim.x, blockDim.y);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
-        wmma_example<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmmaEx2);
+        wmma_example<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmma_example);
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
@@ -174,7 +180,7 @@ int main() {
         cudaErrCheck(cudaEventRecord(startWmmaEx));
         wmmaExample1DGrid<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                              alpha, beta,
-                                                             aFp16, bFp16, cWmmaEx);
+                                                             aFp16, bFp16, cWmmaExample1DGrid);
         printf("%s\n", cudaGetErrorString(cudaGetLastError()));
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
@@ -187,31 +193,75 @@ int main() {
         cudaErrCheck(cudaEventDestroy(stopWmmaEx));
     }
 
-    if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx)) {
+    /* using wmmaExample2DGrid computation */
+    {
+        printf("---------------------------\n");
+        printf("Running with wmmaExample2DGrid...\n");
+
+        cudaEvent_t start;
+        cudaEvent_t stop;
+
+        cudaErrCheck(cudaEventCreate(&start));
+        cudaErrCheck(cudaEventCreate(&stop));
+
+        dim3 gridDim;
+        dim3 blockDim;
+
+        blockDim.x = WARP_SIZE;
+        blockDim.y = WARP_SIZE;
+
+        const int numCountRowOfOutputMatrixPerBlock = (WMMA_M * blockDim.x / 32);
+        const int numCountColOfOutputMatrixPerBlock = (WMMA_N * blockDim.y);
+        gridDim.x = (MATRIX_M + numCountRowOfOutputMatrixPerBlock - 1) / numCountRowOfOutputMatrixPerBlock;
+        gridDim.y = (MATRIX_N + numCountColOfOutputMatrixPerBlock - 1) / numCountColOfOutputMatrixPerBlock;
+
+        cudaErrCheck(cudaEventRecord(start));
+        wmmaExample2DGrid<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
+                                                 alpha, beta,
+                                                 aFp16, bFp16, cWmmaExample2DGrid);
+        printf("%s\n", cudaGetErrorString(cudaGetLastError()));
+        cudaErrCheck(cudaEventRecord(stop));
+        cudaErrCheck(cudaEventSynchronize(stop));
+
+        float wmmaTime;
+        cudaErrCheck(cudaEventElapsedTime(&wmmaTime, start, stop));
+        printf("wmmaExample2DGrid time : %fms\n", wmmaTime);
+
+        cudaErrCheck(cudaEventDestroy(start));
+        cudaErrCheck(cudaEventDestroy(stop));
+    }
+
+    if (!checkDevData(numMatrixCDates, cCublasGemmEx, cWmmaExample1DGrid)) {
         printf("Error! cublas, wmmaExample1DGrid Check no passes!\n");
     } else {
         printf("cublas, wmmaExample1DGrid Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx2)) {
+    if (!checkDevData(numMatrixCDates, cCublasGemmEx, cWmma_example)) {
         printf("Error! cublas, wmma_example Check no passes!\n");
     } else {
         printf("cublas, wmma_example Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaEx)) {
+    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaExample1DGrid)) {
         printf("Error! mmaExampleCommon, wmmaExample1DGrid Check no passes!\n");
     } else {
         printf("mmaExampleCommon, wmmaExample1DGrid Check passes!\n");
+    }
+
+    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaExample2DGrid)) {
+        printf("Error! wmmaExampleCommon, wmmaExample2DGrid Check no passes!\n");
+    } else {
+        printf("wmmaExampleCommon, wmmaExample2DGrid Check passes!\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));
     cudaErrCheck(cudaFree(bFp32));
     cudaErrCheck(cudaFree(aFp16));
     cudaErrCheck(cudaFree(bFp16));
-    cudaErrCheck(cudaFree(cCublas));
-    cudaErrCheck(cudaFree(cWmmaEx));
-    cudaErrCheck(cudaFree(cWmmaEx2));
+    cudaErrCheck(cudaFree(cCublasGemmEx));
+    cudaErrCheck(cudaFree(cWmmaExample1DGrid));
+    cudaErrCheck(cudaFree(cWmma_example));
 
     return 0;
 }
