@@ -1,4 +1,3 @@
-#include <iostream>
 #include <cstdio>
 #include <cstdlib>
 #include <cuda_runtime.h>
@@ -14,7 +13,7 @@ bool checkData(const int num, const float *data1, const float *data2) {
         const float oneData1 = data1[idx];
         const float oneData2 = data2[idx];
 
-        const float diffDats = std::abs(oneData1 - oneData2);
+        const float diffDats = abs(oneData1 - oneData2);
 
         const float relativeErr = diffDats / oneData1;
         const float eps = 1e-4;

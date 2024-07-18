@@ -39,8 +39,6 @@ install(TARGETS ${PROJECT_NAME} DESTINATION bin)
 # Add header directory (locally)
 target_include_directories(${PROJECT_NAME} PRIVATE ${INCLUDE_DIR})
 
-target_link_libraries(${PROJECT_NAME} PRIVATE ${CUDA_cudart_LIBRARY})
-
 # Linked cuda Runtime library
 target_link_libraries(${PROJECT_NAME} PRIVATE CUDA::cudart)
 

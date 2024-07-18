@@ -5,7 +5,7 @@
 #include <curand.h>
 #include <cublas_v2.h>
 
-// Define some error checking macros.
+// Define some error checking macros
 #define cudaErrCheck(stat) { cudaErrCheck_((stat), __FILE__, __LINE__); }
 inline void cudaErrCheck_(cudaError_t stat, const char *file, int line) {
     if (stat != cudaSuccess) {
