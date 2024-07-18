@@ -68,6 +68,6 @@ void mmaHost(const int M, const int N, const int K,
             counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];
         }
 
-        mtrC[cRow * ldc + cCol] = counter;
+        mtrC[cRow * ldc + cCol] = alpha * counter + beta * mtrC[cRow * ldc + cCol];
     }
 }
