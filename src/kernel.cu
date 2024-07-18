@@ -79,9 +79,9 @@ __global__ void wmma_example(int M, int N, int K, float alpha, float beta, half 
 }
 
 // Tile using a 1D grid
-__global__ void wmmaExample(const int M, const int N, const int K,
-                            const float alpha, const float beta,
-                            const half *mtrA, const half *mtrB, float *mtrC) {
+__global__ void wmmaExample1DGrid(const int M, const int N, const int K,
+                                  const float alpha, const float beta,
+                                  const half *mtrA, const half *mtrB, float *mtrC) {
     // Leading dimensions. Packed with no transpositions.
     int lda = K;
     int ldb = N;
@@ -149,5 +149,32 @@ __global__ void wmmaExample(const int M, const int N, const int K,
         wmma::store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_row_major);
     }
 
+}
+
+__global__ void mmaExampleCommon(const int M, const int N, const int K,
+                                 const float alpha, const float beta,
+                                 const half *mtrA, const half *mtrB, float *mtrC){
+    const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    if(idx >= M * N){
+        return;
+    }
+
+    const int lda = K;
+    const int ldb = N;
+    const int ldc = N;
+
+    const int cRow = idx / ldc;
+    const int cCol = idx % ldc;
+
+    const int aRowOffset = cRow * lda;
+    const int bColOffset = cCol;
+
+    half counter = 0.0;
+
+    for (int kIter = 0; kIter < K; ++kIter) {
+        counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];
+    }
+
+    mtrC[cRow * ldc + cCol] = float((half)alpha * counter) + beta * mtrC[cRow * ldc + cCol];
 }
 

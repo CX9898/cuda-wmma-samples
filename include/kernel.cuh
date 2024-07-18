@@ -11,10 +11,12 @@
 
 __global__ void convertFp32ToFp16(half *out, float *in, int n);
 
-__global__ void wmmaExample(const int M, const int N, const int K,
-                            const float alpha, const float beta,
-                            const half *mtrA, const half *mtrB, float *mtrC);
+__global__ void wmmaExample1DGrid(const int M, const int N, const int K,
+                                  const float alpha, const float beta,
+                                  const half *mtrA, const half *mtrB, float *mtrC);
 
 __global__ void wmma_example(int M, int N, int K, float alpha, float beta, half *a, half *b, float *c);
 
-bool checkDevData(const int num, const float *dataDev1, const float *dataDev2);
+__global__ void mmaExampleCommon(const int M, const int N, const int K,
+                                 const float alpha, const float beta,
+                                 const half *mtrA, const half *mtrB, float *mtrC);

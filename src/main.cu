@@ -9,12 +9,13 @@ int main() {
     half *aFp16;
     half *bFp16;
 
+    float *cWmmaExampleCommon;
     float *cCublas;
     float *cWmmaEx;
     float *cWmmaEx2;
 
-    const float alpha = 1.0f;
-    const float beta = 1.0f;
+    const float alpha = 2.0f;
+    const float beta = 2.0f;
 
     const int numMatrixADates = MATRIX_M * MATRIX_K;
     const int numMatrixBDates = MATRIX_K * MATRIX_N;
@@ -26,6 +27,7 @@ int main() {
     cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
     cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
 
+    cudaErrCheck(cudaMalloc((void **) &cWmmaExampleCommon, numMatrixCDates * sizeof(float)));
     cudaErrCheck(cudaMalloc((void **) &cCublas, numMatrixCDates * sizeof(float)));
     cudaErrCheck(cudaMalloc((void **) &cWmmaEx, numMatrixCDates * sizeof(float)));
     cudaErrCheck(cudaMalloc((void **) &cWmmaEx2, numMatrixCDates * sizeof(float)));
@@ -44,6 +46,7 @@ int main() {
         cudaErrCheck(cudaMalloc((void **) &c, numMatrixCDates * sizeof(float)));
         curandErrCheck(curandGenerateUniform(curandGen, c, numMatrixCDates));
 
+        cudaErrCheck(cudaMemcpy(cWmmaExampleCommon, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
         cudaErrCheck(cudaMemcpy(cCublas, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
         cudaErrCheck(cudaMemcpy(cWmmaEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
         cudaErrCheck(cudaMemcpy(cWmmaEx2, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
@@ -57,15 +60,24 @@ int main() {
             bFp16, bFp32, numMatrixBDates);
     }
 
-    std::vector<float> aHost(numMatrixADates);
-    std::vector<float> bHost(numMatrixBDates);
-    std::vector<float> cHost(numMatrixCDates);
+//    std::vector<float> aHost(numMatrixADates);
+//    std::vector<float> bHost(numMatrixBDates);
+//    std::vector<float> cHost(numMatrixCDates);
+//
+//    cudaMemcpy(aHost.data(), aFp16, numMatrixADates, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(bHost.data(), bFp16, numMatrixBDates, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(cHost.data(), cWmmaEx, numMatrixCDates, cudaMemcpyDeviceToHost);
+//
+//    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
 
-    cudaMemcpy(aHost.data(), aFp32, numMatrixADates, cudaMemcpyDeviceToHost);
-    cudaMemcpy(bHost.data(), bFp32, numMatrixBDates, cudaMemcpyDeviceToHost);
-    cudaMemcpy(cHost.data(), cWmmaEx, numMatrixCDates, cudaMemcpyDeviceToHost);
-
-    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
+    /* using mmaExampleCommon computation  */
+    {
+        const int numThreadPerBlocks = 1024;
+        const int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
+        mmaExampleCommon<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
+                                                            alpha, beta,
+                                                            aFp16, bFp16, cWmmaExampleCommon);
+    }
 
     /* using cuBLAS computation */
     {
@@ -143,10 +155,10 @@ int main() {
         cudaErrCheck(cudaEventDestroy(stopWmmaEx));
     }
 
-    /* using wmmaExample computation */
+    /* using wmmaExample1DGrid computation */
     {
         printf("---------------------------\n");
-        printf("Running with wmmaExample...\n");
+        printf("Running with wmmaExample1DGrid...\n");
 
         cudaEvent_t startWmmaEx;
         cudaEvent_t stopWmmaEx;
@@ -160,25 +172,25 @@ int main() {
             / numThreadPerBlocks;
         printf("numBlocks = %d numThreadPerBlocks = %d\n", numBlocks, numThreadPerBlocks);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
-        wmmaExample<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
-                                                       alpha, beta,
-                                                       aFp16, bFp16, cWmmaEx);
+        wmmaExample1DGrid<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
+                                                             alpha, beta,
+                                                             aFp16, bFp16, cWmmaEx);
         printf("%s\n", cudaGetErrorString(cudaGetLastError()));
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
         float wmmaTime;
         cudaErrCheck(cudaEventElapsedTime(&wmmaTime, startWmmaEx, stopWmmaEx));
-        printf("wmmaExample time : %fms\n", wmmaTime);
+        printf("wmmaExample1DGrid time : %fms\n", wmmaTime);
 
         cudaErrCheck(cudaEventDestroy(startWmmaEx));
         cudaErrCheck(cudaEventDestroy(stopWmmaEx));
     }
 
     if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx)) {
-        printf("Error! cublas, wmmaExample Check no passes!\n");
+        printf("Error! cublas, wmmaExample1DGrid Check no passes!\n");
     } else {
-        printf("cublas, wmmaExample Check passes!\n");
+        printf("cublas, wmmaExample1DGrid Check passes!\n");
     }
 
     if (!checkDevData(numMatrixCDates, cCublas, cWmmaEx2)) {
@@ -187,10 +199,10 @@ int main() {
         printf("cublas, wmma_example Check passes!\n");
     }
 
-    if (!checkData(numMatrixCDates, cHost, cWmmaEx)) {
-        printf("Error! mmaHost, wmmaExample Check no passes!\n");
+    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaEx)) {
+        printf("Error! mmaExampleCommon, wmmaExample1DGrid Check no passes!\n");
     } else {
-        printf("mmaHost, wmmaExample Check passes!\n");
+        printf("mmaExampleCommon, wmmaExample1DGrid Check passes!\n");
     }
 
     cudaErrCheck(cudaFree(aFp32));
