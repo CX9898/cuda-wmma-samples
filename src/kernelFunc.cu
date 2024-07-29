@@ -233,11 +233,13 @@ __global__ void wmmaExample2DGrid(const int M, const int N, const int K,
     const auto cOffsetPtr = mtrC + cRowId * ldc + cColId;
     wmma::load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_row_major);
 
+    if (cRowId < M && cColId < N) {
 #pragma unroll
-    for (int idx = 0; idx < cFrag.num_elements; ++idx) {
-        cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
-    }
+        for (int idx = 0; idx < cFrag.num_elements; ++idx) {
+            cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
+        }
 
-    wmma::store_matrix_sync(cOffsetPtr,cFrag,ldc, wmma::mem_row_major);
+        wmma::store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_row_major);
+    }
 }
 
