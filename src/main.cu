@@ -1,3 +1,8 @@
+#include <cstdio>
+
+#include <curand.h>
+#include <cublas_v2.h>
+
 #include "kernelFunc.cuh"
 #include "hostFunc.hpp"
 #include "cudaErrorCheck.hpp"
@@ -44,6 +49,12 @@ int main() {
         curandErrCheck(curandGenerateUniform(curandGen, aFp32, MATRIX_A_SIZE));
         curandErrCheck(curandGenerateUniform(curandGen, bFp32, MATRIX_B_SIZE));
 
+        const int numThreadPerBlock = 256;
+        convertFp32ToFp16<<< (MATRIX_A_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            aFp16, aFp32, MATRIX_A_SIZE);
+        convertFp32ToFp16<<< (MATRIX_B_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            bFp16, bFp32, MATRIX_B_SIZE);
+
         float *c;
         cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&c), MATRIX_C_SIZE * sizeof(float)));
         curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_C_SIZE));
@@ -55,12 +66,6 @@ int main() {
         cudaErrCheck(cudaMemcpy(cWmma_example, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
-
-        const int numThreadPerBlock = 256;
-        convertFp32ToFp16<<< (MATRIX_A_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            aFp16, aFp32, MATRIX_A_SIZE);
-        convertFp32ToFp16<<< (MATRIX_B_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            bFp16, bFp32, MATRIX_B_SIZE);
     }
 
 //    std::vector<float> aHost(MATRIX_A_SIZE);

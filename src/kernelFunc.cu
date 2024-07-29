@@ -1,5 +1,8 @@
+#include <cstdio>
+
 #include <mma.h>
 
+#include "matrixSetting.hpp"
 #include "kernelFunc.cuh"
 
 using namespace nvcuda;

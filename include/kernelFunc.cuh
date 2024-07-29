@@ -1,12 +1,5 @@
 #pragma once
 
-#include <cstdio>
-
-#include <curand.h>
-#include <cublas_v2.h>
-
-#include "matrixSetting.hpp"
-
 #define WARP_SIZE 32
 
 __global__ void convertFp32ToFp16(half *out, float *in, int n);
