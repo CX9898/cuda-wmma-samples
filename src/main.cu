@@ -21,17 +21,17 @@ int main() {
 
     /* Allocated memory in the global memory of the GPU */
     {
-        cudaErrCheck(cudaMalloc((void **) &aFp32, MATRIX_A_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &bFp32, MATRIX_B_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&aFp32), MATRIX_A_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&bFp32), MATRIX_B_SIZE * sizeof(float)));
 
-        cudaErrCheck(cudaMalloc((void **) &aFp16, MATRIX_A_SIZE * sizeof(half)));
-        cudaErrCheck(cudaMalloc((void **) &bFp16, MATRIX_B_SIZE * sizeof(half)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&aFp16), MATRIX_A_SIZE * sizeof(half)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&bFp16), MATRIX_B_SIZE * sizeof(half)));
 
-        cudaErrCheck(cudaMalloc((void **) &cMmaExampleCommon, MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cCublasGemmEx, MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmmaExample1DGrid, MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmmaExample2DGrid, MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmma_example, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cMmaExampleCommon), MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cCublasGemmEx), MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample1DGrid), MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample2DGrid), MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmma_example), MATRIX_C_SIZE * sizeof(float)));
     }
 
     /* using curand to initialize */
@@ -45,7 +45,7 @@ int main() {
         curandErrCheck(curandGenerateUniform(curandGen, bFp32, MATRIX_B_SIZE));
 
         float *c;
-        cudaErrCheck(cudaMalloc((void **) &c, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&c), MATRIX_C_SIZE * sizeof(float)));
         curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_C_SIZE));
 
         cudaErrCheck(cudaMemcpy(cMmaExampleCommon, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));

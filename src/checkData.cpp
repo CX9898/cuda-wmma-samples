@@ -55,7 +55,7 @@ bool checkDevData(const int num, const float *dataDev1, const float *dataDev2) {
 
 bool checkData(const int num, const std::vector<float> &dataHost1, const float *dataDev2) {
 
-    float *dataHost2 = (float *) malloc(num * sizeof(float));
+    auto dataHost2 = static_cast<float *>(malloc(num * sizeof(float)));
     cudaErrCheck(cudaMemcpy(dataHost2, dataDev2, num * sizeof(float), cudaMemcpyDeviceToHost));
 
     bool res = checkData(num, dataHost1.data(), dataHost2);;
@@ -67,7 +67,7 @@ bool checkData(const int num, const std::vector<float> &dataHost1, const float *
 
 bool checkData(const int num, const float *dataDev1, const std::vector<float> &dataHost2) {
 
-    float *dataHost1 = (float *) malloc(num * sizeof(float));
+    auto dataHost1 = static_cast<float *>(malloc(num * sizeof(float)));
     cudaErrCheck(cudaMemcpy(dataHost1, dataDev1, num * sizeof(float), cudaMemcpyDeviceToHost));
 
     bool res = checkData(num, dataHost1, dataHost2.data());;
