@@ -229,7 +229,7 @@ int main() {
     }
 
     if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmma_example)) {
-        printf("Error! cublas, wmma_example Check no passes!\n");
+        printf("Error! cublasGemmEx, wmma_example Check no passes!\n");
     } else {
         printf("cublasGemmEx, wmma_example Check passes!\n");
     }

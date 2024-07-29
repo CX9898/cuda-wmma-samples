@@ -1,3 +1,5 @@
+#include <mma.h>
+
 #include "kernelFunc.cuh"
 
 using namespace nvcuda;

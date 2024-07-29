@@ -1,7 +1,7 @@
 #pragma once
 
 #include <cstdio>
-#include <mma.h>
+
 #include <curand.h>
 #include <cublas_v2.h>
 
