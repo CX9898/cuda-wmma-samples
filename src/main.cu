@@ -1,6 +1,7 @@
 #include "kernelFunc.cuh"
 #include "hostFunc.hpp"
 #include "cudaErrorCheck.hpp"
+#include "matrixSetting.hpp"
 
 int main() {
     float *aFp32;
@@ -18,23 +19,19 @@ int main() {
     const float alpha = 2.0f;
     const float beta = 2.0f;
 
-    const int numMatrixADates = MATRIX_M * MATRIX_K;
-    const int numMatrixBDates = MATRIX_K * MATRIX_N;
-    const int numMatrixCDates = MATRIX_M * MATRIX_N;
-
     /* Allocated memory in the global memory of the GPU */
     {
-        cudaErrCheck(cudaMalloc((void **) &aFp32, numMatrixADates * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &bFp32, numMatrixBDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &aFp32, MATRIX_A_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &bFp32, MATRIX_B_SIZE * sizeof(float)));
 
-        cudaErrCheck(cudaMalloc((void **) &aFp16, numMatrixADates * sizeof(half)));
-        cudaErrCheck(cudaMalloc((void **) &bFp16, numMatrixBDates * sizeof(half)));
+        cudaErrCheck(cudaMalloc((void **) &aFp16, MATRIX_A_SIZE * sizeof(half)));
+        cudaErrCheck(cudaMalloc((void **) &bFp16, MATRIX_B_SIZE * sizeof(half)));
 
-        cudaErrCheck(cudaMalloc((void **) &cWmmaExampleCommon, numMatrixCDates * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cCublasGemmEx, numMatrixCDates * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmmaExample1DGrid, numMatrixCDates * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmmaExample2DGrid, numMatrixCDates * sizeof(float)));
-        cudaErrCheck(cudaMalloc((void **) &cWmma_example, numMatrixCDates * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExampleCommon, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cCublasGemmEx, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExample1DGrid, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmmaExample2DGrid, MATRIX_C_SIZE * sizeof(float)));
+        cudaErrCheck(cudaMalloc((void **) &cWmma_example, MATRIX_C_SIZE * sizeof(float)));
     }
 
     /* using curand to initialize */
@@ -44,42 +41,42 @@ int main() {
         curandErrCheck(curandCreateGenerator(&curandGen, CURAND_RNG_PSEUDO_DEFAULT));
         curandErrCheck(curandSetPseudoRandomGeneratorSeed(curandGen, 1337ULL));
 
-        curandErrCheck(curandGenerateUniform(curandGen, aFp32, numMatrixADates));
-        curandErrCheck(curandGenerateUniform(curandGen, bFp32, numMatrixBDates));
+        curandErrCheck(curandGenerateUniform(curandGen, aFp32, MATRIX_A_SIZE));
+        curandErrCheck(curandGenerateUniform(curandGen, bFp32, MATRIX_B_SIZE));
 
         float *c;
-        cudaErrCheck(cudaMalloc((void **) &c, numMatrixCDates * sizeof(float)));
-        curandErrCheck(curandGenerateUniform(curandGen, c, numMatrixCDates));
+        cudaErrCheck(cudaMalloc((void **) &c, MATRIX_C_SIZE * sizeof(float)));
+        curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_C_SIZE));
 
-        cudaErrCheck(cudaMemcpy(cWmmaExampleCommon, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cCublasGemmEx, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample1DGrid, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmma_example, c, numMatrixCDates, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExampleCommon, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cCublasGemmEx, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample1DGrid, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmma_example, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
 
         const int numThreadPerBlock = 256;
-        convertFp32ToFp16<<< (numMatrixADates + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            aFp16, aFp32, numMatrixADates);
-        convertFp32ToFp16<<< (numMatrixBDates + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            bFp16, bFp32, numMatrixBDates);
+        convertFp32ToFp16<<< (MATRIX_A_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            aFp16, aFp32, MATRIX_A_SIZE);
+        convertFp32ToFp16<<< (MATRIX_B_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
+            bFp16, bFp32, MATRIX_B_SIZE);
     }
 
-//    std::vector<float> aHost(numMatrixADates);
-//    std::vector<float> bHost(numMatrixBDates);
-//    std::vector<float> cHost(numMatrixCDates);
+//    std::vector<float> aHost(MATRIX_A_SIZE);
+//    std::vector<float> bHost(MATRIX_B_SIZE);
+//    std::vector<float> cHost(MATRIX_C_SIZE);
 //
-//    cudaMemcpy(aHost.data(), aFp16, numMatrixADates, cudaMemcpyDeviceToHost);
-//    cudaMemcpy(bHost.data(), bFp16, numMatrixBDates, cudaMemcpyDeviceToHost);
-//    cudaMemcpy(cHost.data(), cWmmaExample1DGrid, numMatrixCDates, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(aHost.data(), aFp16, MATRIX_A_SIZE, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(bHost.data(), bFp16, MATRIX_B_SIZE, cudaMemcpyDeviceToHost);
+//    cudaMemcpy(cHost.data(), cWmmaExample1DGrid, MATRIX_C_SIZE, cudaMemcpyDeviceToHost);
 //
 //    mmaHost(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aHost, bHost, cHost);
 
     /* using mmaExampleCommon computation  */
     {
         const int numThreadPerBlocks = 1024;
-        const int numBlocks = (numMatrixCDates + numThreadPerBlocks - 1) / numThreadPerBlocks;
+        const int numBlocks = (MATRIX_C_SIZE + numThreadPerBlocks - 1) / numThreadPerBlocks;
         mmaExampleCommon<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                             alpha, beta,
                                                             aFp16, bFp16, cWmmaExampleCommon);
@@ -174,7 +171,7 @@ int main() {
 
         const int wmmaCalculatesOneResultTileSize = WMMA_M * WMMA_N;
         int numThreadPerBlocks = WARP_SIZE * 1;
-        int numBlocks = (numMatrixCDates / wmmaCalculatesOneResultTileSize * WARP_SIZE + numThreadPerBlocks - 1)
+        int numBlocks = (MATRIX_C_SIZE / wmmaCalculatesOneResultTileSize * WARP_SIZE + numThreadPerBlocks - 1)
             / numThreadPerBlocks;
         printf("numBlocks = %d numThreadPerBlocks = %d\n", numBlocks, numThreadPerBlocks);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
@@ -231,31 +228,31 @@ int main() {
         cudaErrCheck(cudaEventDestroy(stop));
     }
 
-    if (!checkDevData(numMatrixCDates, cCublasGemmEx, cWmmaExample1DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample1DGrid)) {
         printf("Error! cublas, wmmaExample1DGrid Check no passes!\n");
     } else {
         printf("cublas, wmmaExample1DGrid Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cCublasGemmEx, cWmma_example)) {
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmma_example)) {
         printf("Error! cublas, wmma_example Check no passes!\n");
     } else {
         printf("cublas, wmma_example Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaExample1DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cWmmaExampleCommon, cWmmaExample1DGrid)) {
         printf("Error! mmaExampleCommon, wmmaExample1DGrid Check no passes!\n");
     } else {
         printf("mmaExampleCommon, wmmaExample1DGrid Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cWmmaExampleCommon, cWmmaExample2DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cWmmaExampleCommon, cWmmaExample2DGrid)) {
         printf("Error! wmmaExampleCommon, wmmaExample2DGrid Check no passes!\n");
     } else {
         printf("wmmaExampleCommon, wmmaExample2DGrid Check passes!\n");
     }
 
-    if (!checkDevData(numMatrixCDates, cWmmaExample1DGrid, cWmmaExample2DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cWmmaExample1DGrid, cWmmaExample2DGrid)) {
         printf("Error! wmmaExample1DGrid, wmmaExample2DGrid Check no passes!\n");
     } else {
         printf("wmmaExample1DGrid, wmmaExample2DGrid Check passes!\n");

@@ -39,8 +39,8 @@ bool checkData(const int num, const float *data1, const float *data2) {
 }
 
 bool checkDevData(const int num, const float *dataDev1, const float *dataDev2) {
-    float *dataHost = (float *) malloc(num * sizeof(float));
-    float *dataHost2 = (float *) malloc(num * sizeof(float));
+    auto dataHost = static_cast<float *>(malloc(num * sizeof(float)));
+    auto dataHost2 = static_cast<float *>(malloc(num * sizeof(float)));
 
     cudaErrCheck(cudaMemcpy(dataHost, dataDev1, num * sizeof(float), cudaMemcpyDeviceToHost));
     cudaErrCheck(cudaMemcpy(dataHost2, dataDev2, num * sizeof(float), cudaMemcpyDeviceToHost));

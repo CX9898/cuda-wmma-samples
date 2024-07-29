@@ -1,6 +1,5 @@
 #pragma once
 
-#include "matrixSetting.hpp"
 #include <vector>
 
 // All three matrices A,B,C must be row-major ordered
