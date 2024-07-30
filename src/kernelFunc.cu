@@ -6,7 +6,7 @@
 using namespace nvcuda;
 
 __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
-    int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    int idx = (int) (blockDim.x * blockIdx.x + threadIdx.x);
     if (idx < n) {
         out[idx] = in[idx];
     }
@@ -15,7 +15,7 @@ __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
 __global__ void mmaExampleCommon(const int M, const int N, const int K,
                                  const float alpha, const float beta,
                                  const half *mtrA, const half *mtrB, float *mtrC) {
-    const int idx = blockDim.x * blockIdx.x + threadIdx.x;
+    const int idx = (int) (blockDim.x * blockIdx.x + threadIdx.x);
     if (idx >= M * N) {
         return;
     }
@@ -206,6 +206,7 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
         cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
     }
 
+    // Store the output
     wmma::store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_row_major);
 }
 
@@ -213,8 +214,8 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
                                    const float alpha, const float beta,
                                    const half *mtrA, const half *mtrB, float *mtrC) {
     // Tile using mtrA 2D grid
-    const int warpM = (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
-    const int warpN = (blockIdx.y * blockDim.y + threadIdx.y);
+    const int warpM = (int) (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
+    const int warpN = (int) (blockIdx.y * blockDim.y + threadIdx.y);
 
     // Load in the current value of mtrC, scale it by beta, and add this our result scaled by alpha
     const int cRow = warpM * WMMA_M;
@@ -263,7 +264,7 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
     wmma::load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_col_major);
 
 #pragma unroll
-    for (int idx = 0; idx < cFrag.num_elements; idx++) {
+    for (int idx = 0; idx < cFrag.num_elements; ++idx) {
         cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
     }
 
