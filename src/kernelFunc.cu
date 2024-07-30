@@ -12,69 +12,6 @@ __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
     }
 }
 
-// Performs an MxNxK GEMM (C=alpha*A*B + beta*C) assuming:
-//  1) Matrices are packed in memory.
-//  2) M, N and K are multiples of 16.
-//  3) Neither A nor B are transposed.
-// Note: This is NOT a high performance example but is for demonstration purposes only
-//       For a high performance code please use the GEMM provided in cuBLAS.
-__global__ void wmma_example(int M, int N, int K,
-                             float alpha, float beta,
-                             half *a, half *b, float *c) {
-    // Leading dimensions. Packed with no transpositions.
-    int lda = M;
-    int ldb = K;
-    int ldc = M;
-
-    // Tile using a 2D grid
-    int warpM = (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
-    int warpN = (blockIdx.y * blockDim.y + threadIdx.y);
-
-    // Declare the fragments
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> a_frag;
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> b_frag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> acc_frag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> c_frag;
-
-    wmma::fill_fragment(acc_frag, 0.0f);
-
-    // Loop over k
-    for (int i = 0; i < K; i += WMMA_K) {
-        int aRow = warpM * WMMA_M;
-        int aCol = i;
-
-        int bRow = i;
-        int bCol = warpN * WMMA_N;
-
-        // Bounds checking
-        if (aRow < M && aCol < K && bRow < K && bCol < N) {
-            // Load the inputs
-            wmma::load_matrix_sync(a_frag, a + aRow + aCol * lda, lda);
-            wmma::load_matrix_sync(b_frag, b + bRow + bCol * ldb, ldb);
-
-            // Perform the matrix multiplication
-            wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
-
-        }
-    }
-
-    // Load in the current value of c, scale it by beta, and add this our result scaled by alpha
-    int cRow = warpM * WMMA_M;
-    int cCol = warpN * WMMA_N;
-
-    if (cRow < M && cCol < N) {
-        wmma::load_matrix_sync(c_frag, c + cRow + cCol * ldc, ldc, wmma::mem_col_major);
-
-#pragma unroll
-        for (int i = 0; i < c_frag.num_elements; i++) {
-            c_frag.x[i] = alpha * acc_frag.x[i] + beta * c_frag.x[i];
-        }
-
-        // Store the output
-        wmma::store_matrix_sync(c + cRow + cCol * ldc, c_frag, ldc, wmma::mem_col_major);
-    }
-}
-
 __global__ void mmaExampleCommon(const int M, const int N, const int K,
                                  const float alpha, const float beta,
                                  const half *mtrA, const half *mtrB, float *mtrC) {
@@ -269,4 +206,66 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
     }
 
     wmma::store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_row_major);
+}
+
+__global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
+                                   const float alpha, const float beta,
+                                   const half *mtrA, const half *mtrB, float *mtrC) {
+    // Tile using mtrA 2D grid
+    const int warpM = (blockIdx.x * blockDim.x + threadIdx.x) / warpSize;
+    const int warpN = (blockIdx.y * blockDim.y + threadIdx.y);
+
+    // Load in the current value of mtrC, scale it by beta, and add this our result scaled by alpha
+    const int cRow = warpM * WMMA_M;
+    const int cCol = warpN * WMMA_N;
+
+    if (cRow >= M || cCol >= N) {
+        return;
+    }
+
+    // Declare the fragments
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> a_frag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> b_frag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> acc_frag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> c_frag;
+
+    wmma::fill_fragment(acc_frag, 0.0f);
+
+    // Leading dimensions. Packed with no transpositions.
+    const int lda = M;
+    const int ldb = K;
+    const int ldc = M;
+
+    // Loop over k
+    for (int kIter = 0; kIter < K; kIter += WMMA_K) {
+        const int aRow = cRow;
+        const int aCol = kIter;
+
+        const int bRow = kIter;
+        const int bCol = cCol;
+
+        // Bounds checking
+        if (aRow < M && aCol < K && bRow < K && bCol < N) {
+            const auto aOffsetPtr = mtrA + aRow + aCol * lda;
+            const auto bOffsetPtr = mtrB + bRow + bCol * ldb;
+
+            // Load the inputs
+            wmma::load_matrix_sync(a_frag, aOffsetPtr, lda);
+            wmma::load_matrix_sync(b_frag, bOffsetPtr, ldb);
+
+            // Perform the matrix multiplication
+            wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
+        }
+    }
+
+    const auto cOffsetPtr = mtrC + cRow + cCol * ldc;
+    wmma::load_matrix_sync(c_frag, cOffsetPtr, ldc, wmma::mem_col_major);
+
+#pragma unroll
+    for (int idx = 0; idx < c_frag.num_elements; idx++) {
+        c_frag.x[idx] = alpha * acc_frag.x[idx] + beta * c_frag.x[idx];
+    }
+
+    // Store the output
+    wmma::store_matrix_sync(mtrC + cRow + cCol * ldc, c_frag, ldc, wmma::mem_col_major);
 }
