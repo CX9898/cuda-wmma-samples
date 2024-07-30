@@ -224,12 +224,12 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
     }
 
     // Declare the fragments
-    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> a_frag;
-    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> b_frag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> acc_frag;
-    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> c_frag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> bFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
-    wmma::fill_fragment(acc_frag, 0.0f);
+    wmma::fill_fragment(accFrag, 0.0f);
 
     // Leading dimensions. Packed with no transpositions.
     const int lda = M;
@@ -250,22 +250,22 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
             const auto bOffsetPtr = mtrB + bRow + bCol * ldb;
 
             // Load the inputs
-            wmma::load_matrix_sync(a_frag, aOffsetPtr, lda);
-            wmma::load_matrix_sync(b_frag, bOffsetPtr, ldb);
+            wmma::load_matrix_sync(aFrag, aOffsetPtr, lda);
+            wmma::load_matrix_sync(bFrag, bOffsetPtr, ldb);
 
             // Perform the matrix multiplication
-            wmma::mma_sync(acc_frag, a_frag, b_frag, acc_frag);
+            wmma::mma_sync(accFrag, aFrag, bFrag, accFrag);
         }
     }
 
     const auto cOffsetPtr = mtrC + cRow + cCol * ldc;
-    wmma::load_matrix_sync(c_frag, cOffsetPtr, ldc, wmma::mem_col_major);
+    wmma::load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_col_major);
 
 #pragma unroll
-    for (int idx = 0; idx < c_frag.num_elements; idx++) {
-        c_frag.x[idx] = alpha * acc_frag.x[idx] + beta * c_frag.x[idx];
+    for (int idx = 0; idx < cFrag.num_elements; idx++) {
+        cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
     }
 
     // Store the output
-    wmma::store_matrix_sync(mtrC + cRow + cCol * ldc, c_frag, ldc, wmma::mem_col_major);
+    wmma::store_matrix_sync(mtrC + cRow + cCol * ldc, cFrag, ldc, wmma::mem_col_major);
 }
