@@ -1,7 +1,4 @@
 #include <cstdio>
-#include <cstdlib>
-
-#include <cuda_runtime.h>
 
 #include "hostFunc.hpp"
 #include "cudaErrorCheck.hpp"
@@ -9,6 +6,7 @@
 bool checkData(const int num, const float *data1, const float *data2) {
     printf("\n---------------------------\n"
            "Checking results...\n");
+
     int errors = 0;
     for (int idx = 0; idx < num; ++idx) {
         const float oneData1 = data1[idx];
@@ -23,8 +21,6 @@ bool checkData(const int num, const float *data1, const float *data2) {
             if (errors < 10) {
                 printf("Error : idx = %d data1 = %f, data2 = %f\n", idx, oneData1, oneData2);
             }
-        } else {
-//            printf("Pass : idx = %d data1 = %f, data2 = %f\n", idx, oneData1, oneData2);
         }
     }
 

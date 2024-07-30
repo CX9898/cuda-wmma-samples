@@ -1,5 +1,3 @@
-#include <cstdio>
-
 #include <mma.h>
 
 #include "matrixSetting.hpp"
@@ -7,7 +5,7 @@
 
 using namespace nvcuda;
 
-__global__ void convertFp32ToFp16(half *out, float *in, int n) {
+__global__ void convertFp32ToFp16(const int n, const float *in, half *out){
     int idx = blockDim.x * blockIdx.x + threadIdx.x;
     if (idx < n) {
         out[idx] = in[idx];
@@ -69,14 +67,6 @@ __global__ void wmma_example(int M, int N, int K,
 
 #pragma unroll
         for (int i = 0; i < c_frag.num_elements; i++) {
-            if (blockIdx.x * blockDim.x + threadIdx.x == 0 && i == 1) {
-                printf("accFrag.x[%d] = %f, cFrag.x[%d] = %f, alpha * accFrag.x[idx] + beta * cFrag.x[idx] = %f\n",
-                       i,
-                       acc_frag.x[i],
-                       i,
-                       c_frag.x[i],
-                       alpha * acc_frag.x[i] + beta * c_frag.x[i]);
-            }
             c_frag.x[i] = alpha * acc_frag.x[i] + beta * c_frag.x[i];
         }
 
@@ -103,13 +93,14 @@ __global__ void mmaExampleCommon(const int M, const int N, const int K,
     const int aRowOffset = cRow * lda;
     const int bColOffset = cCol;
 
-    half counter = 0.0;
+    float counter = 0.0;
 
     for (int kIter = 0; kIter < K; ++kIter) {
-        counter += mtrA[aRowOffset + kIter] * mtrB[bColOffset + kIter * ldb];
+        counter += float(mtrA[aRowOffset + kIter]) * float(mtrB[bColOffset + kIter * ldb]);
     }
 
-    mtrC[cRow * ldc + cCol] = float((half) alpha * counter) + beta * mtrC[cRow * ldc + cCol];
+    const int cIdx = cRow * ldc + cCol;
+    mtrC[cIdx] = alpha * counter + beta * mtrC[cIdx];
 }
 
 // Tile using a 1D grid
@@ -158,9 +149,6 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
         }
     }
 
-    if ((blockIdx.x * blockDim.x + threadIdx.x) % 32 == 0) {
-        printf(" warpId = %d  cRowIdx = %d  cColIdx = %d \n", warpId, cRowIdx, cColIdx);
-    }
     const auto cTileOffsetPrt = mtrC + cRowIdx * ldc + cColIdx;
 
     // Bounds checking
@@ -169,14 +157,6 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
 
 #pragma unroll
         for (int idx = 0; idx < cFrag.num_elements; ++idx) {
-            if (blockIdx.x * blockDim.x + threadIdx.x == 0 && idx == 1) {
-                printf("accFrag.x[%d] = %f, cFrag.x[%d] = %f, alpha * accFrag.x[idx] + beta * cFrag.x[idx] = %f\n",
-                       idx,
-                       accFrag.x[idx],
-                       idx,
-                       cFrag.x[idx],
-                       alpha * accFrag.x[idx] + beta * cFrag.x[idx]);
-            }
             cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
         }
 
