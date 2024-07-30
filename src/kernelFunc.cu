@@ -180,7 +180,7 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
     const int ldb = K;
     const int ldc = N;
 
-    for (int kIter = 0; kIter < K; ++kIter) {
+    for (int kIter = 0; kIter < K; kIter += WMMA_K) {
         const int aRow = cRow;
         const int aCol = kIter;
 
