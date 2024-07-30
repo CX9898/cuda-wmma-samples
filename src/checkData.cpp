@@ -36,15 +36,15 @@ bool checkData(const int num, const float *data1, const float *data2) {
 }
 
 bool checkDevData(const int num, const float *dataDev1, const float *dataDev2) {
-    auto dataHost = static_cast<float *>(malloc(num * sizeof(float)));
+    auto dataHost1 = static_cast<float *>(malloc(num * sizeof(float)));
     auto dataHost2 = static_cast<float *>(malloc(num * sizeof(float)));
 
-    cudaErrCheck(cudaMemcpy(dataHost, dataDev1, num * sizeof(float), cudaMemcpyDeviceToHost));
+    cudaErrCheck(cudaMemcpy(dataHost1, dataDev1, num * sizeof(float), cudaMemcpyDeviceToHost));
     cudaErrCheck(cudaMemcpy(dataHost2, dataDev2, num * sizeof(float), cudaMemcpyDeviceToHost));
 
-    bool res = checkData(num, dataHost, dataHost2);;
+    bool res = checkData(num, dataHost1, dataHost2);;
 
-    free(dataHost);
+    free(dataHost1);
     free(dataHost2);
 
     return res;
