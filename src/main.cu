@@ -5,7 +5,7 @@
 
 #include "kernelFunc.cuh"
 #include "hostFunc.hpp"
-#include "cudaErrorCheck.hpp"
+#include "cudaErrorCheck.cuh"
 #include "matrixSetting.hpp"
 
 int main() {
