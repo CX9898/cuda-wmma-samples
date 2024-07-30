@@ -98,7 +98,7 @@ int main() {
         cublasErrCheck(cublasSetMathMode(cublasHandle, CUBLAS_TENSOR_OP_MATH));
 
         cudaErrCheck(cudaEventRecord(startCublas));
-        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
+        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N , CUBLAS_OP_N,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
                                     aFp16, CUDA_R_16F, MATRIX_M,
@@ -280,6 +280,12 @@ int main() {
         printf("Error! Function wmmaExample1DGrid, wmmaExample2DGrid Check no passes!\n");
     } else {
         printf("Function wmmaExample1DGrid, wmmaExample2DGrid Check passes!\n");
+    }
+
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample2DGrid)) {
+        printf("Error! Function cublasGemmEx, wmmaExample2DGrid Check no passes!\n");
+    } else {
+        printf("Function cublasGemmEx, wmmaExample2DGrid Check passes!\n");
     }
 
     if (!checkDevData(MATRIX_C_SIZE, cWmmaExample2DGrid, cWmmaExample2DGrid2)) {
