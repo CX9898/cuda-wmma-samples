@@ -98,7 +98,7 @@ int main() {
         cublasErrCheck(cublasSetMathMode(cublasHandle, CUBLAS_TENSOR_OP_MATH));
 
         cudaErrCheck(cudaEventRecord(startCublas));
-        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N , CUBLAS_OP_N,
+        cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_T, CUBLAS_OP_T,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
                                     aFp16, CUDA_R_16F, MATRIX_M,
@@ -167,8 +167,8 @@ int main() {
         blockDim.x = WARP_SIZE;
         blockDim.y = WARP_SIZE;
 
-        const int numCountRowOfOutputMatrixPerBlock = (WMMA_M * blockDim.x / 32);
-        const int numCountColOfOutputMatrixPerBlock = (WMMA_N * blockDim.y);
+        const int numCountRowOfOutputMatrixPerBlock = (int) (WMMA_M * blockDim.x / 32);
+        const int numCountColOfOutputMatrixPerBlock = (int) (WMMA_N * blockDim.y);
         gridDim.x = (MATRIX_M + numCountRowOfOutputMatrixPerBlock - 1) / numCountRowOfOutputMatrixPerBlock;
         gridDim.y = (MATRIX_N + numCountColOfOutputMatrixPerBlock - 1) / numCountColOfOutputMatrixPerBlock;
 
@@ -204,15 +204,15 @@ int main() {
         blockDim.x = WARP_SIZE;
         blockDim.y = WARP_SIZE;
 
-        const int numCountRowOfOutputMatrixPerBlock = (WMMA_M * blockDim.x / 32);
-        const int numCountColOfOutputMatrixPerBlock = (WMMA_N * blockDim.y);
+        const int numCountRowOfOutputMatrixPerBlock = (int) (WMMA_M * blockDim.x / 32);
+        const int numCountColOfOutputMatrixPerBlock = (int) (WMMA_N * blockDim.y);
         gridDim.x = (MATRIX_M + numCountRowOfOutputMatrixPerBlock - 1) / numCountRowOfOutputMatrixPerBlock;
         gridDim.y = (MATRIX_N + numCountColOfOutputMatrixPerBlock - 1) / numCountColOfOutputMatrixPerBlock;
 
         cudaErrCheck(cudaEventRecord(start2));
         wmmaExample2DGrid2<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
-                                                 alpha, beta,
-                                                 aFp16, bFp16, cWmmaExample2DGrid2);
+                                                  alpha, beta,
+                                                  aFp16, bFp16, cWmmaExample2DGrid2);
 
         cudaErrCheck(cudaEventRecord(stop2));
         cudaErrCheck(cudaEventSynchronize(stop2));
@@ -246,7 +246,9 @@ int main() {
         gridDim.x = (MATRIX_M + (WMMA_M * blockDim.x / 32 - 1)) / (WMMA_M * blockDim.x / 32);
         gridDim.y = (MATRIX_N + WMMA_N * blockDim.y - 1) / (WMMA_N * blockDim.y);
         cudaErrCheck(cudaEventRecord(startWmmaEx));
-        wmmaExample2DGrid3<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K, alpha, beta, aFp16, bFp16, cWmmaExample2DGrid3);
+        wmmaExample2DGrid3<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
+                                                  alpha, beta,
+                                                  aFp16, bFp16, cWmmaExample2DGrid3);
         cudaErrCheck(cudaEventRecord(stopWmmaEx));
         cudaErrCheck(cudaEventSynchronize(stopWmmaEx));
 
@@ -282,10 +284,10 @@ int main() {
         printf("Function wmmaExample1DGrid, wmmaExample2DGrid Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample2DGrid)) {
-        printf("Error! Function cublasGemmEx, wmmaExample2DGrid Check no passes!\n");
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample2DGrid2)) {
+        printf("Error! Function cublasGemmEx, wmmaExample2DGrid2 Check no passes!\n");
     } else {
-        printf("Function cublasGemmEx, wmmaExample2DGrid Check passes!\n");
+        printf("Function cublasGemmEx, wmmaExample2DGrid2 Check passes!\n");
     }
 
     if (!checkDevData(MATRIX_C_SIZE, cWmmaExample2DGrid, cWmmaExample2DGrid2)) {
