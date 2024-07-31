@@ -2,9 +2,11 @@
 
 #include "matrixSetting.hpp"
 #include "kernelFunc.cuh"
+#include "devVector.cuh"
 
 using namespace nvcuda;
 
+// TODO : Support dev::vector class
 __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
     int idx = (int) (blockDim.x * blockIdx.x + threadIdx.x);
     if (idx < n) {
@@ -14,7 +16,7 @@ __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
 
 __global__ void mmaExampleCommon(const int M, const int N, const int K,
                                  const float alpha, const float beta,
-                                 const half *mtrA, const half *mtrB, float *mtrC) {
+                                 const dev::vector<half> &mtrA, const half *mtrB, float *mtrC) {
     const int idx = (int) (blockDim.x * blockIdx.x + threadIdx.x);
     if (idx >= M * N) {
         return;
@@ -89,14 +91,14 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
 
     // Bounds checking
     if (cRow < M && cCol < N) {
-        wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
+        wmma::load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_col_major);
 
 #pragma unroll
         for (int idx = 0; idx < cFrag.num_elements; ++idx) {
             cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
         }
 
-        wmma::store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_row_major);
+        wmma::store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_col_major);
     }
 
 }

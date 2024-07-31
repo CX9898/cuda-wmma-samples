@@ -5,9 +5,9 @@ namespace dev {
 template<typename T>
 class vector {
  public:
-  vector() : size_(0), data_(nullptr) {};
-  vector(int size);
-  ~vector();
+  inline vector() : size_(0), capacity_(0), data_(nullptr) {};
+  inline vector(int size);
+  inline ~vector();
 
   inline __host__ __device__ size_t size() {
       return size_;
@@ -27,12 +27,14 @@ class vector {
 
  private:
   size_t size_;
+  size_t capacity_;
   T *data_;
 };
 
 template<typename T>
 inline vector<T>::vector(const int size) : vector() {
     size_ = size;
+    capacity_ = size;
     cudaMalloc(reinterpret_cast<void **>(data_), size);
 }
 

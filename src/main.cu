@@ -3,6 +3,7 @@
 #include <curand.h>
 #include <cublas_v2.h>
 
+#include "devVector.cuh"
 #include "kernelFunc.cuh"
 #include "hostFunc.hpp"
 #include "cudaErrorCheck.cuh"
@@ -10,37 +11,21 @@
 #include "cudaTimeCalculator.cuh"
 
 int main() {
-    float *aFp32;
-    float *bFp32;
+    dev::vector<float> aFp32(MATRIX_A_SIZE);
+    dev::vector<float> bFp32(MATRIX_B_SIZE);
 
-    half *aFp16;
-    half *bFp16;
+    dev::vector<half> aFp16(MATRIX_A_SIZE);
+    dev::vector<half> bFp16(MATRIX_B_SIZE);
 
-    float *cMmaExampleCommon;
-    float *cCublasGemmEx;
-    float *cWmmaExample1DGrid;
-    float *cWmmaExample2DGrid;
-    float *cWmmaExample2DGrid2;
-    float *cWmmaExample2DGrid3;
+    dev::vector<float> cMmaExampleCommon(MATRIX_C_SIZE);
+    dev::vector<float> cCublasGemmEx(MATRIX_C_SIZE);
+    dev::vector<float> cWmmaExample1DGrid(MATRIX_C_SIZE);
+    dev::vector<float> cWmmaExample2DGrid(MATRIX_C_SIZE);
+    dev::vector<float> cWmmaExample2DGrid2(MATRIX_C_SIZE);
+    dev::vector<float> cWmmaExample2DGrid3(MATRIX_C_SIZE);
 
     const float alpha = 2.0f;
     const float beta = 2.0f;
-
-    // Allocated memory in the global memory of the GPU
-    {
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&aFp32), MATRIX_A_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&bFp32), MATRIX_B_SIZE * sizeof(float)));
-
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&aFp16), MATRIX_A_SIZE * sizeof(half)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&bFp16), MATRIX_B_SIZE * sizeof(half)));
-
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cMmaExampleCommon), MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cCublasGemmEx), MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample1DGrid), MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample2DGrid), MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample2DGrid2), MATRIX_C_SIZE * sizeof(float)));
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&cWmmaExample2DGrid3), MATRIX_C_SIZE * sizeof(float)));
-    }
 
     // using cuRAND to initialize
     {
@@ -49,25 +34,25 @@ int main() {
         curandErrCheck(curandCreateGenerator(&curandGen, CURAND_RNG_PSEUDO_DEFAULT));
         curandErrCheck(curandSetPseudoRandomGeneratorSeed(curandGen, 1337ULL));
 
-        curandErrCheck(curandGenerateUniform(curandGen, aFp32, MATRIX_A_SIZE));
-        curandErrCheck(curandGenerateUniform(curandGen, bFp32, MATRIX_B_SIZE));
+        curandErrCheck(curandGenerateUniform(curandGen, aFp32.data(), MATRIX_A_SIZE));
+        curandErrCheck(curandGenerateUniform(curandGen, bFp32.data(), MATRIX_B_SIZE));
 
         const int numThreadPerBlock = 256;
         convertFp32ToFp16<<< (MATRIX_A_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            MATRIX_A_SIZE, aFp32, aFp16);
+            MATRIX_A_SIZE, aFp32.data(), aFp16.data());
         convertFp32ToFp16<<< (MATRIX_B_SIZE + numThreadPerBlock - 1) / numThreadPerBlock, numThreadPerBlock>>>(
-            MATRIX_B_SIZE, bFp32, bFp16);
+            MATRIX_B_SIZE, bFp32.data(), bFp16.data());
 
-        float *c;
-        cudaErrCheck(cudaMalloc(reinterpret_cast<void **>(&c), MATRIX_C_SIZE * sizeof(float)));
-        curandErrCheck(curandGenerateUniform(curandGen, c, MATRIX_C_SIZE));
+        dev::vector<float> c(MATRIX_C_SIZE);
+        curandErrCheck(curandGenerateUniform(curandGen, c.data(), c.size()));
 
-        cudaErrCheck(cudaMemcpy(cMmaExampleCommon, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cCublasGemmEx, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample1DGrid, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid2, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
-        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid3, c, MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        // TODO : implement copy function
+        cudaErrCheck(cudaMemcpy(cMmaExampleCommon.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cCublasGemmEx.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample1DGrid.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid2.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
+        cudaErrCheck(cudaMemcpy(cWmmaExample2DGrid3.data(), c.data(), MATRIX_C_SIZE, cudaMemcpyDeviceToDevice));
 
         curandErrCheck(curandDestroyGenerator(curandGen));
     }
@@ -78,7 +63,7 @@ int main() {
         const int numBlocks = (MATRIX_C_SIZE + numThreadPerBlocks - 1) / numThreadPerBlocks;
         mmaExampleCommon<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                             alpha, beta,
-                                                            aFp16, bFp16, cMmaExampleCommon);
+                                                            aFp16.data(), bFp16.data(), cMmaExampleCommon.data());
     }
 
     // using cuBLAS computation
@@ -98,10 +83,10 @@ int main() {
         cublasErrCheck(cublasGemmEx(cublasHandle, CUBLAS_OP_N, CUBLAS_OP_N,
                                     MATRIX_M, MATRIX_N, MATRIX_K,
                                     &alpha,
-                                    aFp16, CUDA_R_16F, MATRIX_M,
-                                    bFp16, CUDA_R_16F, MATRIX_K,
+                                    aFp16.data(), CUDA_R_16F, MATRIX_M,
+                                    bFp16.data(), CUDA_R_16F, MATRIX_K,
                                     &beta,
-                                    cCublasGemmEx, CUDA_R_32F, MATRIX_M,
+                                    cCublasGemmEx.data(), CUDA_R_32F, MATRIX_M,
                                     CUDA_R_32F, CUBLAS_GEMM_DEFAULT_TENSOR_OP));
         timeCalculator.endClock();
 
@@ -125,7 +110,7 @@ int main() {
         timeCalculator.startClock();
         wmmaExample1DGrid<<<numBlocks, numThreadPerBlocks>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                              alpha, beta,
-                                                             aFp16, bFp16, cWmmaExample1DGrid);
+                                                             aFp16.data(), bFp16.data(), cWmmaExample1DGrid.data());
         timeCalculator.endClock();
 
         printf("wmmaExample1DGrid time : %fms\n", timeCalculator.getTime());
@@ -152,7 +137,7 @@ int main() {
         timeCalculator.startClock();
         wmmaExample2DGrid<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                  alpha, beta,
-                                                 aFp16, bFp16, cWmmaExample2DGrid);
+                                                 aFp16.data(), bFp16.data(), cWmmaExample2DGrid.data());
         timeCalculator.endClock();
 
         printf("wmmaExample2DGrid time : %fms\n", timeCalculator.getTime());
@@ -179,7 +164,7 @@ int main() {
         timeCalculator.startClock();
         wmmaExample2DGrid2<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                   alpha, beta,
-                                                  aFp16, bFp16, cWmmaExample2DGrid2);
+                                                  aFp16.data(), bFp16.data(), cWmmaExample2DGrid2.data());
         timeCalculator.endClock();
 
         printf("wmmaExample2DGrid2 time : %fms\n", timeCalculator.getTime());
@@ -206,57 +191,57 @@ int main() {
         timeCalculator.startClock();
         wmmaExample2DGrid3<<<gridDim, blockDim>>>(MATRIX_M, MATRIX_N, MATRIX_K,
                                                   alpha, beta,
-                                                  aFp16, bFp16, cWmmaExample2DGrid3);
+                                                  aFp16.data(), bFp16.data(), cWmmaExample2DGrid3.data());
         timeCalculator.endClock();
 
         printf("wmmaExample2DGrid3 time : %fms\n", timeCalculator.getTime());
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample2DGrid3)) {
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx.data(), cWmmaExample2DGrid3.data())) {
         printf("Error! Function cublasGemmEx, wmmaExample2DGrid3 Check no passes!\n");
     } else {
         printf("Function cublasGemmEx, wmmaExample2DGrid3 Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cMmaExampleCommon, cWmmaExample1DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cMmaExampleCommon.data(), cWmmaExample1DGrid.data())) {
         printf("Error! Function mmaExampleCommon, wmmaExample1DGrid Check no passes!\n");
     } else {
         printf("Function mmaExampleCommon, wmmaExample1DGrid Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cMmaExampleCommon, cWmmaExample2DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cMmaExampleCommon.data(), cWmmaExample2DGrid.data())) {
         printf("Error! Function mmaExampleCommon, wmmaExample2DGrid Check no passes!\n");
     } else {
         printf("Function mmaExampleCommon, wmmaExample2DGrid Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cWmmaExample1DGrid, cWmmaExample2DGrid)) {
+    if (!checkDevData(MATRIX_C_SIZE, cWmmaExample1DGrid.data(), cWmmaExample2DGrid.data())) {
         printf("Error! Function wmmaExample1DGrid, wmmaExample2DGrid Check no passes!\n");
     } else {
         printf("Function wmmaExample1DGrid, wmmaExample2DGrid Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx, cWmmaExample2DGrid2)) {
+    if (!checkDevData(MATRIX_C_SIZE, cCublasGemmEx.data(), cWmmaExample2DGrid2.data())) {
         printf("Error! Function cublasGemmEx, wmmaExample2DGrid2 Check no passes!\n");
     } else {
         printf("Function cublasGemmEx, wmmaExample2DGrid2 Check passes!\n");
     }
 
-    if (!checkDevData(MATRIX_C_SIZE, cWmmaExample2DGrid, cWmmaExample2DGrid2)) {
+    if (!checkDevData(MATRIX_C_SIZE, cWmmaExample2DGrid.data(), cWmmaExample2DGrid2.data())) {
         printf("Error! Function wmmaExample2DGrid, wmmaExample2DGrid2 Check no passes!\n");
     } else {
         printf("Function wmmaExample2DGrid, wmmaExample2DGrid2 Check passes!\n");
     }
 
-    cudaErrCheck(cudaFree(aFp32));
-    cudaErrCheck(cudaFree(bFp32));
-    cudaErrCheck(cudaFree(aFp16));
-    cudaErrCheck(cudaFree(bFp16));
-    cudaErrCheck(cudaFree(cCublasGemmEx));
-    cudaErrCheck(cudaFree(cWmmaExample2DGrid3));
-    cudaErrCheck(cudaFree(cWmmaExample1DGrid));
-    cudaErrCheck(cudaFree(cWmmaExample2DGrid));
-    cudaErrCheck(cudaFree(cWmmaExample2DGrid2));
+//    cudaErrCheck(cudaFree(aFp32));
+//    cudaErrCheck(cudaFree(bFp32));
+//    cudaErrCheck(cudaFree(aFp16));
+//    cudaErrCheck(cudaFree(bFp16));
+//    cudaErrCheck(cudaFree(cCublasGemmEx));
+//    cudaErrCheck(cudaFree(cWmmaExample2DGrid3));
+//    cudaErrCheck(cudaFree(cWmmaExample1DGrid));
+//    cudaErrCheck(cudaFree(cWmmaExample2DGrid));
+//    cudaErrCheck(cudaFree(cWmmaExample2DGrid2));
 
     return 0;
 }
