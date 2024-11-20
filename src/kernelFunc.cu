@@ -3,7 +3,7 @@
 #include "matrixSetting.hpp"
 #include "kernelFunc.cuh"
 
-using namespace nvcuda::wmma;
+using namespace nvcuda;
 
 __global__ void convertFp32ToFp16(const int n, const float *in, half *out) {
     int idx = (int) (blockDim.x * blockIdx.x + threadIdx.x);
@@ -48,16 +48,16 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
     // Due to the use of 1D grid,
     // warp first iterates over the columns of the resulting matrix and then over the rows
     int cRow = (warpId * WMMA_M) % M;
-    int cCol = 0;
-    if (warpId > 0) {
-        cCol = warpId * WMMA_M / M * WMMA_N;
-    }
+    int cCol = warpId * WMMA_M / M * WMMA_N;
+//    if (warpId > 0) {
+//        cCol = warpId * WMMA_M / M * WMMA_N;
+//    }
 
-    fragment<matrix_a, WMMA_M, WMMA_N, WMMA_K, half, row_major> aFrag;
-    fragment<matrix_b, WMMA_M, WMMA_N, WMMA_K, half, row_major> bFrag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
 
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag; // Fragment accumulators
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag; // Fragment accumulators
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
     fill_fragment(accFrag, 0.0f);
 
@@ -89,14 +89,14 @@ __global__ void wmmaExample1DGrid(const int M, const int N, const int K,
 
     // Bounds checking
     if (cRow < M && cCol < N) {
-        load_matrix_sync(cFrag, cTileOffsetPrt, ldc, mem_row_major);
+        load_matrix_sync(cFrag, cTileOffsetPrt, ldc, wmma::mem_row_major);
 
 #pragma unroll
         for (int idx = 0; idx < cFrag.num_elements; ++idx) {
             cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
         }
 
-        store_matrix_sync(cTileOffsetPrt, cFrag, ldc, mem_row_major);
+        store_matrix_sync(cTileOffsetPrt, cFrag, ldc, wmma::mem_row_major);
     }
 
 }
@@ -114,11 +114,11 @@ __global__ void wmmaExample2DGrid(const int M, const int N, const int K,
         return;
     }
 
-    fragment<matrix_a, WMMA_M, WMMA_N, WMMA_K, half, row_major> aFrag;
-    fragment<matrix_b, WMMA_M, WMMA_N, WMMA_K, half, row_major> bFrag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> bFrag;
 
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
     fill_fragment(accFrag, 0.0f);
 
@@ -134,8 +134,8 @@ __global__ void wmmaExample2DGrid(const int M, const int N, const int K,
         const int bCol = cCol;
 
         if (aRow < M && aCol < K && bRow < K && bCol < N) {
-            const auto aOffsetPtr = mtrA + aRow * lda + aCol;
-            const auto bOffsetPtr = mtrB + bRow * ldb + bCol;
+            const half* aOffsetPtr = mtrA + aRow * lda + aCol;
+            const half* bOffsetPtr = mtrB + bRow * ldb + bCol;
 
             load_matrix_sync(aFrag, aOffsetPtr, lda);
             load_matrix_sync(bFrag, bOffsetPtr, ldb);
@@ -144,15 +144,15 @@ __global__ void wmmaExample2DGrid(const int M, const int N, const int K,
         }
     }
 
-    const auto cOffsetPtr = mtrC + cRow * ldc + cCol;
-    load_matrix_sync(cFrag, cOffsetPtr, ldc, mem_row_major);
+    float* cOffsetPtr = mtrC + cRow * ldc + cCol;
+    load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_row_major);
 
 #pragma unroll
     for (int idx = 0; idx < cFrag.num_elements; ++idx) {
         cFrag.x[idx] = alpha * accFrag.x[idx] + beta * cFrag.x[idx];
     }
 
-    store_matrix_sync(cOffsetPtr, cFrag, ldc, mem_row_major);
+    store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_row_major);
 }
 
 __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
@@ -168,11 +168,11 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
         return;
     }
 
-    fragment<matrix_a, WMMA_M, WMMA_N, WMMA_K, half, row_major> aFrag;
-    fragment<matrix_b, WMMA_M, WMMA_N, WMMA_K, half, col_major> bFrag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::row_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> bFrag;
 
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
     fill_fragment(accFrag, 0.0f);
 
@@ -199,7 +199,7 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
     }
 
     const auto cOffsetPtr = mtrC + cRow * ldc + cCol;
-    load_matrix_sync(cFrag, cOffsetPtr, ldc, mem_col_major);
+    load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_col_major);
 
 #pragma unroll
     for (int idx = 0; idx < cFrag.num_elements; ++idx) {
@@ -207,7 +207,7 @@ __global__ void wmmaExample2DGrid2(const int M, const int N, const int K,
     }
 
     // Store the output
-    store_matrix_sync(cOffsetPtr, cFrag, ldc, mem_col_major);
+    store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_col_major);
 }
 
 __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
@@ -226,10 +226,10 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
     }
 
     // Declare the fragments
-    fragment<matrix_a, WMMA_M, WMMA_N, WMMA_K, half, col_major> aFrag;
-    fragment<matrix_b, WMMA_M, WMMA_N, WMMA_K, half, col_major> bFrag;
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
-    fragment<accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
+    wmma::fragment<wmma::matrix_a, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> aFrag;
+    wmma::fragment<wmma::matrix_b, WMMA_M, WMMA_N, WMMA_K, half, wmma::col_major> bFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> accFrag;
+    wmma::fragment<wmma::accumulator, WMMA_M, WMMA_N, WMMA_K, float> cFrag;
 
     fill_fragment(accFrag, 0.0f);
 
@@ -261,7 +261,7 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
     }
 
     const auto cOffsetPtr = mtrC + cRow + cCol * ldc;
-    load_matrix_sync(cFrag, cOffsetPtr, ldc, mem_col_major);
+    load_matrix_sync(cFrag, cOffsetPtr, ldc, wmma::mem_col_major);
 
 #pragma unroll
     for (int idx = 0; idx < cFrag.num_elements; ++idx) {
@@ -269,5 +269,5 @@ __global__ void wmmaExample2DGrid3(const int M, const int N, const int K,
     }
 
     // Store the output
-    store_matrix_sync(cOffsetPtr, cFrag, ldc, mem_col_major);
+    store_matrix_sync(cOffsetPtr, cFrag, ldc, wmma::mem_col_major);
 }
